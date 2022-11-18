@@ -1,7 +1,9 @@
 # CFGBeast
 ![alt text](https://github.com/Outerbeast/CFGBeast/blob/main/preview.png?raw=true)
 
-Automatic CFG file generator for BSP files\nMake cfg files for all your maps in one go without having to do it manually, with preset CVars that you specifiy
+Automatic CFG file generator for BSP files
+
+Make cfg files for all your maps in one go without having to do it manually, with preset CVars that you specify
 
 ## Installation
 - Place the exe file into your folder containing the .bsp files
