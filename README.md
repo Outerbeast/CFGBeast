@@ -1,5 +1,6 @@
 # CFGBeast
 Automatic CFG file generator for BSP files
+Make cfg files for all your maps in one go without having to do it manually, with preset CVars that you specifiy
 
 ## Installation
 - Place the exe file into your folder containing the .bsp files
