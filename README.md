@@ -69,9 +69,9 @@ build.cmd
 The executable will be generated in the current directory.
 
 # Feedback & Issues
-If you have feedback or encounter issues, please open an issue on GitHub Issues.
+If you have feedback or encounter issues, please open an issue on [GitHub Issues](https://github.com/Outerbeast/CFGBeast/issues).
 
 
-Credits
-Outerbeast - Author
-Garompa - Testing and feedback
+### Credits
+- Outerbeast - Author
+- Garompa - Testing and feedback
