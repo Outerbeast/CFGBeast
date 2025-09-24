@@ -6,6 +6,7 @@ BSP map configurator
 Quick and easy automatic CFG file generator for BSP files in one go, with preset CVars that can be selected
 
 ## Installation
+- Download the application from the [Releases](https://github.com/Outerbeast/CFGBeast/releases/) section
 - Place the executable file into your folder containing the .bsp files
 - Launch the executable for initial setup, this will search for your Sven Co-op game install.
 
