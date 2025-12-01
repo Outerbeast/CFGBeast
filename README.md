@@ -57,7 +57,7 @@ rustup target add x86_64-pc-windows-msvc
 
 ```cmd
 git clone https://github.com/Outerbeast/CFGBeast.git
-cd yourproject
+cd CFGBeast
 ```
 
 2. Run the build script:
