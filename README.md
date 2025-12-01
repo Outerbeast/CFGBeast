@@ -56,7 +56,7 @@ rustup target add x86_64-pc-windows-msvc
 1. Download or clone the repository:
 
 ```cmd
-git clone https://github.com/yourname/yourproject.git
+git clone https://github.com/Outerbeast/CFGBeast.git
 cd yourproject
 ```
 

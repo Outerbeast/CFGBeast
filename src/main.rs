@@ -17,50 +17,28 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 #![windows_subsystem = "windows"]
 
-use std::env;
-use std::fs;
+pub mod driver;
+pub mod init;
+pub mod gui;
+pub mod cfg;
+pub mod motd;
 
-mod init;
-mod gui;
-mod cfg;
-mod motd;
+pub const APPNAME: &str = "CFGBeast";
 
-fn main()
+fn main() -> std::process::ExitCode
 {
-    init::init();
-    let args: Vec<String> = env::args().collect();
-
-    match args.len()
+    match driver::run()
     {
-        n if n > 1 =>
+        Ok( _ ) =>
         {
-            for file in &args[1..]
-            {
-                if file.ends_with( ".cfg" )
-                {
-                    if let Ok( content ) = fs::read_to_string( file )
-                    {
-                        cfg::create_cfg( cfg::Cfg 
-                        { 
-                            cvars: content, 
-                            writetype: cfg::WriteType::OVERWRITE, 
-                            skillcfg: false, 
-                            bspdir: env::current_dir().unwrap(), 
-                            bspwhitelist: vec![] 
-                        });
-                    }
-                }
-                else if file.ends_with( "_motd.txt" )
-                {
-                    if let Ok( content ) = fs::read_to_string( file )
-                    {
-                        motd::create_motd( content );
-                    }
-                }
-            }
+            println!( "Application ran successfully." );
+            std::process::ExitCode::SUCCESS
         }
-        // Nothing was dragged, launch application
-        _ => gui::GUI(),
-    }
 
+        Err( e ) =>
+        {
+            eprintln!( "Application error: {}", e );
+            std::process::ExitCode::FAILURE
+        }
+    }
 }

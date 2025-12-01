@@ -15,12 +15,19 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-use std::env;
-use std::fs;
-use native_windows_gui::MessageButtons;
-use native_windows_gui::MessageIcons;
+use std::
+{
+    env,
+    fs,
+};
 
-use crate::gui::message_box;
+use native_windows_gui::
+{
+    MessageButtons,
+    MessageIcons
+};
+
+use crate::gui::window::message_box;
 
 pub fn create_motd(motd_content: String)
 {
@@ -29,7 +36,17 @@ pub fn create_motd(motd_content: String)
         return;
     }
 
-    let current_dir = env::current_dir().expect( "Failed to get current directory" );
+    let current_dir = 
+    env::current_dir()
+        .inspect_err( |e|
+        {
+            message_box("Error",
+                format!( "Failed to get current directory.\nReason:\n {}", e ).as_str(),
+                MessageButtons::Ok,
+                MessageIcons::Error );
+        })
+    .unwrap_or_default();
+
     let mut count = 0u8;
     // Iterate over *.bsp files in current directory
     for entry in fs::read_dir( &current_dir ).expect( "Failed to read directory" )
@@ -46,14 +63,26 @@ pub fn create_motd(motd_content: String)
         { 
             continue
         };
-        
+  
         let motd_filename = format!( "{}_motd.txt", base_name );
         count += fs::write( &motd_filename, &motd_content ).is_ok() as u8;
     }
 
     match count
     {
-        0 => { message_box( "No MOTD files written", "No MOTD files written.\n\nPlease place the app executable in a map folder with valid BSPs and try again.", MessageButtons::Ok, MessageIcons::Warning ); },
-        _ => { message_box( "Done", &format!( "Processed {} MOTD file(s).", count ), MessageButtons::Ok, MessageIcons::Info ); }
+        0 =>
+        { 
+            message_box( "No MOTD files written",
+                "No MOTD files written.\n\nPlease place the app executable in a map folder with valid BSPs and try again.",
+                MessageButtons::Ok,
+                MessageIcons::Warning );
+        },
+        _ =>
+        {
+            message_box( "Done",
+            &format!( "Processed {} MOTD file(s).", count ),
+            MessageButtons::Ok,
+            MessageIcons::Info );
+        }
     }
 }

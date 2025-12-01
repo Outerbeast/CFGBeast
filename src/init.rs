@@ -15,11 +15,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-use std::fs;
-use std::env;
-use std::path::*;
-
-use crate::gui;
+use std::
+{
+    fs,
+    env,
+    path::*
+};
 
 const DEFAULT_MAP_SETTINGS: &str = "default_map_settings.cfg";
 const SKILL_SETTINGS: &str = "skill.cfg";
@@ -27,7 +28,7 @@ const SKILL_SETTINGS: &str = "skill.cfg";
 fn get_localappdata_path() -> PathBuf
 {
     let base = env::var( "LOCALAPPDATA" ).expect( "LOCALAPPDATA not set" );
-    PathBuf::from( base ).join( crate::gui::APPNAME )
+    PathBuf::from( base ).join( crate::APPNAME )
 }
 
 pub fn get_config(filename: &str) -> String
@@ -72,7 +73,7 @@ fn search_drives(file_name: &str) -> PathBuf
 
     let mut results: Vec<PathBuf> = Vec::new();
 
-    for drive in vec!["A:/", "B:/", "C:/", "D:/", "E:/",]
+    for drive in vec!["A:/", "B:/", "C:/", "D:/", "E:/", "F:/",]
     {
         let root = Path::new( drive );
 
@@ -110,7 +111,7 @@ pub fn init()
         return;
     }
 
-    let splash = gui::show_wait_splash();
+    let splash = crate::gui::window::show_wait_splash();
     let default_path = search_drives( DEFAULT_MAP_SETTINGS );
 
     if default_path.exists()

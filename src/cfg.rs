@@ -15,16 +15,20 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-#[allow(non_snake_case)]
+use std::
+{
+    fs,
+    fs::DirEntry,
+    env,
+    io::*,
+    path::*
+};
 
-use std::fs;
-use std::env;
-use std::fs::DirEntry;
-use std::path::*;
-use std::io::*;
-
-use crate::init::*;
-use crate::gui::message_box;
+use crate::
+{
+    init::*,
+    gui::window::message_box
+};
 
 #[derive(PartialEq)]
 pub enum WriteType
@@ -149,7 +153,7 @@ pub fn load_bsps(chosen_dir: PathBuf) -> Vec<PathBuf>
     let current_dir =
     match chosen_dir.exists()
     {
-        true => env::current_dir().expect( "Failed to get dir." ),
+        true => env::current_dir().unwrap_or_default(),
         false => chosen_dir
     };
 
@@ -171,12 +175,16 @@ pub fn create_cfg(cfg: Cfg)
     {
         if writetype != WriteType::DELETE
         {
-            message_box( "No CVars specified", "You did not add in any CVars.\nEnter your CVars in the text box and try again.", native_windows_gui::MessageButtons::Ok, native_windows_gui::MessageIcons::Warning );
+            message_box( "No CVars specified",
+                "You did not add in any CVars.\nEnter your CVars in the text box and try again.",
+                native_windows_gui::MessageButtons::Ok,
+                native_windows_gui::MessageIcons::Warning );
+
             return;
         }    
     }
 
-    let cvars_in = format!( "// CFGBeast generated config file\n{}\n", cfg.cvars );
+    let cvars_in = format!( "{}\n", cfg.cvars );
     let mut count = 0u8;
 
     let bsps = load_bsps( cfg.bspdir );
@@ -220,7 +228,11 @@ pub fn create_cfg(cfg: Cfg)
 
     if bsps.is_empty()// But why is it empty?
     {
-        message_box( "No matching BSP files found", "No matching BSP files found from the whitelist.\n\nPlease adjust the whitelist or place the app executable in a map folder with valid BSPs and try again.", native_windows_gui::MessageButtons::Ok, native_windows_gui::MessageIcons::Warning );
+        message_box( "No matching BSP files found",
+            "No matching BSP files found from the whitelist.\n\nPlease adjust the whitelist or place the app executable in a map folder with valid BSPs and try again.",
+            native_windows_gui::MessageButtons::Ok,
+            native_windows_gui::MessageIcons::Warning );
+
         return;
     }
 
@@ -259,7 +271,7 @@ pub fn create_cfg(cfg: Cfg)
                     .append( true )
                     .create( true )
                     .open( &cfg_name )
-                    .expect( "Failed to open file." );
+                .expect( "Failed to open file." );
 
                 count += file.write_all( cvars_in.as_bytes() ).is_ok() as u8;
             }
@@ -289,7 +301,19 @@ pub fn create_cfg(cfg: Cfg)
 
     match count
     {
-        0 => { message_box( "No CFG files written", "No CFG files written.\n\nPlease place the app executable in a map folder with valid BSPs and try again.", native_windows_gui::MessageButtons::Ok, native_windows_gui::MessageIcons::Warning ); },
-        _ => { message_box( "Done", &format!( "Processed {} .cfg file(s).", count ), native_windows_gui::MessageButtons::Ok, native_windows_gui::MessageIcons::Info ); }
+        0 => 
+        {
+            message_box( "No CFG files written", 
+                "No CFG files written.\n\nPlease place the app executable in a map folder with valid BSPs and try again.", 
+                native_windows_gui::MessageButtons::Ok, 
+                native_windows_gui::MessageIcons::Warning );
+        },
+        _ =>
+        {
+            message_box( "Done", 
+                &format!( "Processed {} .cfg file(s).", count ),
+                native_windows_gui::MessageButtons::Ok,
+                native_windows_gui::MessageIcons::Info );
+        }
     }
 }
