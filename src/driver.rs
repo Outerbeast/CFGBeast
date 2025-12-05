@@ -55,12 +55,9 @@ pub fn run() -> Result<(), io::Error>
                         });
                     }
                 }
-                else if file.ends_with( "_motd.txt" )
+                else if file.ends_with( "_motd.txt" ) && let Ok( content ) = fs::read_to_string( file )
                 {
-                    if let Ok( content ) = fs::read_to_string( file )
-                    {
-                        motd::create_motd( content );
-                    }
+                    motd::create_motd( content );
                 }
             }
         }

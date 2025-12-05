@@ -108,11 +108,11 @@ const OTHER_CVARS: &[&str] =
 
 pub fn parse_cfg(file_cvars: fs::File) -> Vec<String>
 {
-    let mut cvars : Vec<String> = BufReader::new( file_cvars )
+    let mut cvars: Vec<String> = BufReader::new( file_cvars )
         .lines()
-        .filter_map( Result::ok )
+        .map_while( Result::ok )// fingers crossed
         .map( |line| line.trim().to_string() )
-        .filter( |line| !line.is_empty() && !line.starts_with( "//" ) && !line.starts_with( "#" ) )
+        .filter( |line| !line.is_empty() && !line.starts_with( "//" ) && !line.starts_with( '#' ) )
     .collect();
 
     cvars.sort();
@@ -160,10 +160,10 @@ pub fn load_bsps(chosen_dir: PathBuf) -> Vec<PathBuf>
     let entries: Vec<DirEntry> = fs::read_dir( Path::new( &current_dir ) )
         .unwrap()
         .filter_map( Result::ok )
-        .filter( |e| e.path().extension().map_or( false, |ext| ext.eq_ignore_ascii_case( "bsp" ) ) )
+        .filter( |e| e.path().extension().is_some_and( |ext| ext.eq_ignore_ascii_case( "bsp" ) ) )
     .collect();
 
-    return entries.iter().map( |e| e.path() ).collect();
+    entries.iter().map( |e| e.path() ).collect()
 }
 
 pub fn create_cfg(cfg: Cfg)
@@ -171,17 +171,12 @@ pub fn create_cfg(cfg: Cfg)
     let writetype = cfg.writetype;
     let whitelist = cfg.bspwhitelist;
 
-    if cfg.cvars == ""
+    if cfg.cvars.is_empty() && writetype != WriteType::DELETE
     {
-        if writetype != WriteType::DELETE
-        {
-            message_box( "No CVars specified",
-                "You did not add in any CVars.\nEnter your CVars in the text box and try again.",
-                native_windows_gui::MessageButtons::Ok,
-                native_windows_gui::MessageIcons::Warning );
-
-            return;
-        }    
+        message_box( "No CVars specified",
+            "You did not add in any CVars.\nEnter your CVars in the text box and try again.",
+            native_windows_gui::MessageButtons::Ok,
+            native_windows_gui::MessageIcons::Warning );
     }
 
     let cvars_in = format!( "{}\n", cfg.cvars );

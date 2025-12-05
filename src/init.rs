@@ -64,7 +64,7 @@ pub fn write_config(filename: &str, contents: &str)
     fs::write( &file_path, contents ).expect("Failed to write file" );
 }
 
-fn search_drives(file_name: &str) -> PathBuf
+pub fn search_drives(file_name: &str) -> PathBuf
 {
     if file_name.trim().is_empty()
     {
@@ -73,16 +73,18 @@ fn search_drives(file_name: &str) -> PathBuf
 
     let mut results: Vec<PathBuf> = Vec::new();
 
-    for drive in vec!["A:/", "B:/", "C:/", "D:/", "E:/", "F:/",]
+    for c in 'A'..='Z'
     {
-        let root = Path::new( drive );
+        let drive = format!( "{}:/", c );
+        let root = Path::new( &drive );
 
         if root.exists() && root.is_dir()
         {
-            let walker = walkdir::WalkDir::new( root )
+            let walker = 
+            walkdir::WalkDir::new( root )
                 .max_depth( 10 )
                 .into_iter()
-                .filter_entry(|e|
+                .filter_entry( |e|
                 {
                     let name = e.file_name().to_string_lossy();
                     !name.eq_ignore_ascii_case( "$Recycle.Bin" )

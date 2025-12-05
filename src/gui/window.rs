@@ -47,17 +47,15 @@ pub struct MainWindow
     pub checkbox: CheckBox,
 }
 
-pub fn message_box(title: &str, body: &str, buttons: MessageButtons, icons: MessageIcons) -> MessageChoice
+pub fn message_box(title: &str, content: &str, buttons: MessageButtons, icons: MessageIcons) -> MessageChoice
 {
-    let choice = nwg::message( &MessageParams
+    nwg::message( &MessageParams
     {
-        title: title,
-        content: body,
-        buttons: buttons,
-        icons: icons,
-    });
-
-    choice
+        title,
+        content,
+        buttons,
+        icons,
+    })
 }
 // All fugly boilerplate business for building the GUI
 pub fn build_main_window() -> Rc<RefCell<MainWindow>>

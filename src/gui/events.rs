@@ -174,19 +174,17 @@ pub fn GUI()
                 else if handle == gui.listbox_cvar.handle
                 {
                     if let Some( idx ) = gui.listbox_cvar.selection()
+                    && let Some( selected ) = gui.listbox_cvar.collection().get( idx )
                     {
-                        if let Some( selected ) = gui.listbox_cvar.collection().get( idx )
+                        let mut current = gui.textbox.text();
+
+                        if !current.trim().is_empty() && !current.ends_with( '\n' )
                         {
-                            let mut current = gui.textbox.text();
-
-                            if !current.trim().is_empty() && !current.ends_with( '\n' )
-                            {
-                                current.push_str( "\r\n" );
-                            }
-
-                            current.push_str( selected );
-                            gui.textbox.set_text( &current );
+                            current.push_str( "\r\n" );
                         }
+
+                        current.push_str( selected );
+                        gui.textbox.set_text( &current );
                     }
                 }
             }
