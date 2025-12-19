@@ -1,5 +1,5 @@
 /*
-	CBFGBeast Version 2.0
+	CFGBeast Version 2.1
 
 Copyright (C) 2025 Outerbeast
 This program is free software: you can redistribute it and/or modify
@@ -16,11 +16,10 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 extern crate native_windows_gui as nwg;
-
 use std::
 {
-    env,
-    rc::Rc
+    rc::Rc,
+    path::Path
 };
 
 use nwg::*;
@@ -28,24 +27,16 @@ use super::window::*;
 use crate::
 {
     APPNAME,
-    cfg::
+    cvar::
     {
         self,
         *
-    }
+    },
+    gui,
+    utils
 };
 
-const HELP_INFO: &str =
-"This is a simple application to create, append, remove, and delete CFG files based on the BSP files in the current directory.\n\n
-    1. Enter the cvars you want to manage in the text box, by selecting cvar presets or typing them in.\n
-    2. Click 'Create' to create or overwrite CFG files.\n
-    3. Click 'Add' to append cvars to existing CFG files.\n
-    4. Click 'Remove' to remove specified cvars from CFG files.\n
-    5. Click 'Delete' to delete all CFG files in the current directory.\n
-    6. Click 'Cancel' or 'x' to exit the application.\n\n
-    Thank you for using this app!\nIf you'd like to give feedback feel free to put them here: https://github.com/Outerbeast/CFGBeast/issues";
-
-pub fn GUI()
+pub fn GUI(bsp_path: &Path)
 {
     if let Err( e ) = init()
     {
@@ -57,7 +48,7 @@ pub fn GUI()
         panic!( "{} panicked: {}", APPNAME, e );
     }
 
-    let gui = crate::gui::window::build_main_window();
+    let gui = crate::gui::window::build_main_window( bsp_path );
     let cloned_gui = Rc::clone( &gui );
     let window_handle = gui.borrow().window.handle;
 
@@ -67,65 +58,102 @@ pub fn GUI()
 
         match evt
         {
-            Event::OnButtonClick if handle == gui.checkbox.handle =>
+            Event::OnButtonClick
+            if handle == gui.checkbox.handle =>
             {
                 let is_checked = gui.checkbox.check_state() == nwg::CheckBoxState::Checked;
 
                 match is_checked
                 {
-                    true => { gui.listbox_cvar.set_collection( cfg::get_skill_cvars() ); }
-                    false => { gui.listbox_cvar.set_collection( cfg::get_default_cvars() ); }
+                    true => { gui.listbox_cvar.set_collection( cvar::get_skill_cvars() ); }
+                    false => { gui.listbox_cvar.set_collection( cvar::get_default_cvars() ); }
                 }
             }
 
             Event::OnButtonClick =>
             {
-                let contents = gui.textbox.text();
+                let cvars = gui.textbox.text();
                 let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
+                let is_skillcfg = gui.checkbox.check_state() == nwg::CheckBoxState::Checked;
+                let bspdir = gui.bsp_dir.clone();
 
                 if handle == gui.buttons[0].handle
                 {
-                    create_cfg( cfg::Cfg
+                    cvar::Cfg
                     { 
-                        cvars: contents, writetype:
-                        WriteType::OVERWRITE, skillcfg:
-                        gui.checkbox.check_state() == nwg::CheckBoxState::Checked,
-                        bspdir: env::current_dir().unwrap(),
+                        cvars,
+                        writetype: WriteType::OVERWRITE,
+                        is_skillcfg,
+                        bspdir,
                         bspwhitelist: bspwhitelist.clone() 
-                    });
+                    }.create();
                 }
                 else if handle == gui.buttons[1].handle
                 {
-                    create_cfg( cfg::Cfg
+                    cvar::Cfg
                     { 
-                        cvars: contents,
+                        cvars,
                         writetype: WriteType::APPEND,
-                        skillcfg: gui.checkbox.check_state() == nwg::CheckBoxState::Checked,
-                        bspdir: env::current_dir().unwrap(),
+                        is_skillcfg,
+                        bspdir,
                         bspwhitelist: bspwhitelist.clone()
-                    });
+                    }.create();
                 }
                 else if handle == gui.buttons[2].handle
                 {
-                    create_cfg( cfg::Cfg
+                    cvar::Cfg
                     { 
-                        cvars: contents, 
+                        cvars, 
                         writetype: WriteType::REMOVE, 
-                        skillcfg: gui.checkbox.check_state() == nwg::CheckBoxState::Checked,
-                        bspdir: env::current_dir().unwrap(),
+                        is_skillcfg,
+                        bspdir,
                         bspwhitelist: bspwhitelist.clone() 
-                    });
+                    }.create();
                 }
                 else if handle == gui.buttons[3].handle
                 {
-                    create_cfg( cfg::Cfg
+                    cvar::Cfg
                     {
-                        cvars: contents,
+                        cvars,
                         writetype: WriteType::DELETE,
-                        skillcfg: gui.checkbox.check_state() == nwg::CheckBoxState::Checked,
-                        bspdir: env::current_dir().unwrap(),
+                        is_skillcfg,
+                        bspdir,
                         bspwhitelist: current_bsp_whitelist( &gui.listbox_bsp )
-                    });
+                    }.create();
+                }
+                else if handle == gui.buttons[6].handle
+                {
+                    let selected_bsp_folder =
+                    match utils::select_folder_dialogue( &gui.window )
+                    {
+                        Some( path ) => path,
+                        None =>
+                        {   // A folder wasn't picked
+                            return;
+                        }
+                    };
+
+                    if selected_bsp_folder.exists() && utils::dir_contains_type( &selected_bsp_folder, "bsp" )
+                    {   
+                        drop( gui );// Release the immutable borrow before taking a mutable one
+                        let mut gui_mut = cloned_gui.borrow_mut();
+                        gui_mut.bsp_dir = selected_bsp_folder;
+                        let bsp_paths = cvar::load_bsps( gui_mut.bsp_dir.as_path() );
+                        // Extract filenames and mark them all as checked
+                        let bsp_filenames: Vec<String> = bsp_paths.iter()
+                            .filter_map( |p| p.file_name() )
+                            .map( |name| format!( "{CHECKED}\t{}", name.to_string_lossy() ) )
+                        .collect();
+
+                        gui_mut.listbox_bsp.set_collection( bsp_filenames );
+                    }
+                    else
+                    {
+                        message_box( "Invalid folder",
+                        "The selected folder does not contain any BSP files.",
+                        MessageButtons::Ok,
+                        MessageIcons::Error );
+                    }
                 }
                 else if handle == gui.buttons[4].handle
                 {
@@ -133,20 +161,35 @@ pub fn GUI()
                 }
                 else if handle == gui.buttons[5].handle
                 {
-                    message_box( "Help", HELP_INFO, MessageButtons::Ok, MessageIcons::Question );
+                    message_box( "Help", gui::window::HELP_INFO, MessageButtons::Ok, MessageIcons::Question );
                 }
             }
-            // !-ISSUE-!: Doesn't do anything - flags can't be set on textbox for some reason to allow drops
+
             Event::OnFileDrop =>
-            {
-                if let EventData::OnFileDrop( drop) = evt_data
+            {   // Release the long-lived immutable borrow taken before the match
+                drop( gui );
+
+                if let EventData::OnFileDrop( drop ) = evt_data
                 {
-                    for file in drop.files()
+                    let mut combined = String::new();
+
+                    for path in drop.files()
                     {
-                        if let Ok( content ) = std::fs::read_to_string( file )
-                        {
-                            gui.textbox.set_text( &content );
+                        if Path::new( &path ).extension().and_then( |s| s.to_str() ) != Some( "cfg" )
+                        {   // Not a .cfg file, skip
+                            continue;
                         }
+
+                        if let Ok( content ) = std::fs::read_to_string(&path)
+                        {
+                            combined.push_str( &content );
+                            combined.push( '\n' );
+                        }
+                    }
+
+                    {
+                        let gui_mut = cloned_gui.borrow_mut();
+                        gui_mut.textbox.set_text( &combined );
                     }
                 }
             }
@@ -168,24 +211,22 @@ pub fn GUI()
                             false => format!( "{CHECKED}\t{}", &current[UNCHECKED.len() + 1..] )
                         };
                         // Replace the collection in one go
-                        gui.listbox_bsp.set_collection(items);
+                        gui.listbox_bsp.set_collection( items );
                     }
                 }
                 else if handle == gui.listbox_cvar.handle
+                && let Some( idx ) = gui.listbox_cvar.selection()
+                && let Some( selected ) = gui.listbox_cvar.collection().get( idx )
                 {
-                    if let Some( idx ) = gui.listbox_cvar.selection()
-                    && let Some( selected ) = gui.listbox_cvar.collection().get( idx )
+                    let mut current = gui.textbox.text();
+
+                    if !current.trim().is_empty() && !current.ends_with( '\n' )
                     {
-                        let mut current = gui.textbox.text();
-
-                        if !current.trim().is_empty() && !current.ends_with( '\n' )
-                        {
-                            current.push_str( "\r\n" );
-                        }
-
-                        current.push_str( selected );
-                        gui.textbox.set_text( &current );
+                        current.push_str( "\r\n" );
                     }
+
+                    current.push_str( selected );
+                    gui.textbox.set_text( &current );
                 }
             }
 
@@ -211,7 +252,7 @@ fn current_bsp_whitelist(listbox: &nwg::ListBox<String>) -> Vec<String>
         {
             match s.starts_with( checked )
             {
-                true => Some( s[checked.len() + 1..].to_string() ), // strip "☑ "
+                true => Some( s[checked.len() + 1..].to_string() ),// strip "☑ "
                 false => None
             }
         })

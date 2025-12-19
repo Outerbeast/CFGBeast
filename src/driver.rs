@@ -1,5 +1,5 @@
 /*
-	Sven Co-op Plugin Manager Version 1.0
+	CFGBeast Version 2.1
 
 Copyright (C) 2025 Outerbeast
 This program is free software: you can redistribute it and/or modify
@@ -22,17 +22,44 @@ use std::
     fs
 };
 
+use native_windows_gui::
+{
+    MessageButtons,
+    MessageIcons
+};
+
 use crate::
 {
-    init,
-    cfg,
+    APPNAME,
+    config,
+    cvar,
     gui,
     motd
 };
 
 pub fn run() -> Result<(), io::Error>
 {
-    init::init();
+    let _ =
+    match config::init()
+    {
+        Ok( dir ) =>
+        {
+            dir
+        }
+
+        Err( e ) =>
+        {
+            gui::window::message_box( "Sven Co-op install Not Found",
+                format!( "Could not find a valid Sven Co-op installation.
+                    \nReason:\n{}
+                    \n\nTry installing {} directly to 'Sven Co-op\\svencoop' and try again.", e, APPNAME ).as_str(), 
+                MessageButtons::Ok,
+                MessageIcons::Error );
+
+            return Err( e );
+        }
+    };
+
     let args: Vec<String> = env::args().collect();
 
     match args.len()
@@ -45,14 +72,14 @@ pub fn run() -> Result<(), io::Error>
                 {
                     if let Ok( content ) = fs::read_to_string( file )
                     {
-                        cfg::create_cfg( cfg::Cfg 
+                        cvar::Cfg 
                         { 
                             cvars: content, 
-                            writetype: cfg::WriteType::OVERWRITE, 
-                            skillcfg: false, 
-                            bspdir: env::current_dir().unwrap(), 
+                            writetype: cvar::WriteType::OVERWRITE, 
+                            is_skillcfg: false, 
+                            bspdir: env::current_dir().unwrap_or_default(), 
                             bspwhitelist: vec![] 
-                        });
+                        }.create();
                     }
                 }
                 else if file.ends_with( "_motd.txt" ) && let Ok( content ) = fs::read_to_string( file )
@@ -62,7 +89,7 @@ pub fn run() -> Result<(), io::Error>
             }
         }
         // Nothing was dragged, launch application
-        _ => gui::events::GUI(),
+        _ => gui::events::GUI( env::current_dir().unwrap_or_default().as_path() ),
     }
 
     Ok( () )

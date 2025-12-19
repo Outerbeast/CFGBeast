@@ -1,5 +1,5 @@
 /*
-	CBFGBeast Version 2.0
+	CFGBeast Version 2.1
 
 Copyright (C) 2025 Outerbeast
 This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use std::
 {
     env,
-    fs,
+    fs
 };
 
 use native_windows_gui::
@@ -76,7 +76,8 @@ pub fn create_motd(motd_content: String)
                 "No MOTD files written.\n\nPlease place the app executable in a map folder with valid BSPs and try again.",
                 MessageButtons::Ok,
                 MessageIcons::Warning );
-        },
+        }
+
         _ =>
         {
             message_box( "Done",

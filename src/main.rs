@@ -1,5 +1,5 @@
 /*
-	CBFGBeast Version 2.0
+	CFGBeast Version 2.1
 
 Copyright (C) 2025 Outerbeast
 This program is free software: you can redistribute it and/or modify
@@ -18,10 +18,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 #![windows_subsystem = "windows"]
 
 pub mod driver;
-pub mod init;
+pub mod config;
 pub mod gui;
-pub mod cfg;
+pub mod cvar;
 pub mod motd;
+pub mod utils;
 
 pub const APPNAME: &str = "CFGBeast";
 

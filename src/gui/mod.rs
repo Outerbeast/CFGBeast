@@ -1,5 +1,5 @@
 /*
-	CBFGBeast Version 2.0
+	CFGBeast Version 2.1
 
 Copyright (C) 2025 Outerbeast
 This program is free software: you can redistribute it and/or modify
