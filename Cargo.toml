@@ -5,10 +5,10 @@ edition = "2024"
 
 [dependencies]
 native-windows-gui = "1.0.13"
-native-windows-derive = "1.0.5" # Optional, for macro-based UI
+# Optional, for macro-based UI
 walkdir = "2.5.0"
 serde = { version = "1.0.228", features = ["derive"] }
-toml = "0.9.10"
+toml = "1.0.3+spec-1.1.0"
 
 [build-dependencies]
-winresource = "0.1.28"
+winresource = "0.1.30"
