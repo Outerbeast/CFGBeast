@@ -25,47 +25,60 @@ use std::
         PathBuf
     }
 };
+
+#[macro_export]
+macro_rules! alloc_shared// Shared, mutable heap allocation (Rc<RefCell<T>>).
+{
+    ( $value:expr ) =>
+    {
+        std::rc::Rc::new( std::cell::RefCell::new( $value ) )
+    };
+}
+
+#[macro_export]
+macro_rules! alloc_leaked// Leak allocator: boxes the value, leaks it forever
+{
+    ( $value:expr ) =>
+    {
+        Box::leak( Box::new( $value ) )
+    };
+}
 // Searches all drives for a specific filename, returns the path to that file
-pub fn search_drives(file_name: &str) -> PathBuf
+// Searches all drives for a specific filename, returns the path to that file
+pub fn search_drives(file_name: &str) -> Option<PathBuf>
 {
     if file_name.trim().is_empty()
     {
-        return PathBuf::new();
+        return None;
     }
 
-    let mut results: Vec<PathBuf> = Vec::new();
-
-    for c in 'A'..='Z'
+    for d in 'A'..='Z'
     {
-        let drive = format!( "{}:/", c );
+        let drive = format!( "{}:/", d );
         let root = Path::new( &drive );
 
         if root.exists() && root.is_dir()
         {
-            let walker = 
-            walkdir::WalkDir::new( root )
-                .max_depth( 10 )
-                .into_iter()
-                .filter_entry( |e|
-                {
-                    let name = e.file_name().to_string_lossy();
-                    !name.eq_ignore_ascii_case( "$Recycle.Bin" )
-                })
-                .filter_map( Result::ok )
-                .filter( |e| e.file_name().to_string_lossy().eq_ignore_ascii_case( file_name ) );
+            let mut walker =
+                walkdir::WalkDir::new( root )
+                    .max_depth( 10 )
+                    .into_iter()
+                    .filter_entry( |e|
+                        {
+                            let name = e.file_name().to_string_lossy();
+                            !name.eq_ignore_ascii_case( "$Recycle.Bin" )
+                        })
+                    .filter_map( Result::ok )
+                    .filter( |e| e.file_name().to_string_lossy().eq_ignore_ascii_case( file_name ) );
 
-            for entry in walker
+            if let Some(entry) = walker.next()
             {
-                results.push( entry.path().to_path_buf() );
+                return Some( entry.path().to_path_buf() );
             }
         }
     }
 
-    match results.is_empty()
-    {
-        true => PathBuf::new(),
-        false => results[0].clone(),
-    }
+    None
 }
 // Opens a folder selection dialogue, returns the selected folder path
 pub fn select_folder_dialogue(parent: &nwg::Window) -> Option<PathBuf>
@@ -95,7 +108,7 @@ pub fn dir_contains_type(dir: &Path, ext: &str) -> bool
         return false;
     }
 
-    match fs::read_dir(dir)
+    match fs::read_dir( dir )
     {
         Ok( entries ) =>
         {

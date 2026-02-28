@@ -28,7 +28,7 @@ use std::
     rc::Rc
 };
 
-use crate::cvar;
+use crate::{alloc_shared, cvar};
 
 const WINDOW_SIZE: (i32, i32) = ( 860, 440 );
 const BUTTON_SIZE: (i32, i32) = ( 85, 30 );
@@ -72,7 +72,7 @@ pub struct MainWindow
 
 pub fn message_box(title: &str, content: &str, buttons: MessageButtons, icons: MessageIcons) -> MessageChoice
 {
-    nwg::message( &MessageParams
+    message( &MessageParams
     {
         title,
         content,
@@ -83,7 +83,7 @@ pub fn message_box(title: &str, content: &str, buttons: MessageButtons, icons: M
 // All fugly boilerplate business for building the GUI
 pub fn build_main_window(bsp_path: &Path) -> Rc<RefCell<MainWindow>>
 {
-    let window = Rc::new( RefCell::new( MainWindow::default() ) );
+    let window = alloc_shared!( MainWindow::default() );
     {
         let mut app_mut = window.borrow_mut();
         app_mut.bsp_dir = bsp_path.to_path_buf().clone();
@@ -140,7 +140,7 @@ pub fn build_main_window(bsp_path: &Path) -> Rc<RefCell<MainWindow>>
             .size( BSP_LIST_SIZE )
             .position( ( 10, 40 ) )
             .parent( &app_mut.window )
-            .flags( nwg::ListBoxFlags::VISIBLE ) // ensure it's interactive (not DISABLED)
+            .flags( ListBoxFlags::VISIBLE ) // ensure it's interactive (not DISABLED)
         .build( &mut app_mut.listbox_bsp ).unwrap_or_default();
         // CVar Listbox
         ListBox::builder()
@@ -148,7 +148,7 @@ pub fn build_main_window(bsp_path: &Path) -> Rc<RefCell<MainWindow>>
             .size( CVAR_LIST_SIZE ) // visible area; scrollbar appears if items overflow
             .position( ( 520, 40 ) )
             .parent( &app_mut.window )
-            .flags( nwg::ListBoxFlags::VISIBLE )
+            .flags( ListBoxFlags::VISIBLE )
         .build( &mut app_mut.listbox_cvar ).unwrap_or_default();
         // Skill CFG checkbox
         CheckBox::builder()
@@ -156,8 +156,8 @@ pub fn build_main_window(bsp_path: &Path) -> Rc<RefCell<MainWindow>>
             .size( ( 120, 25 ) )
             .position( ( 520, 10 ) )
             .parent( &app_mut.window )
-            .flags( nwg::CheckBoxFlags::VISIBLE )
-            .check_state( nwg::CheckBoxState::Unchecked )
+            .flags( CheckBoxFlags::VISIBLE )
+            .check_state( CheckBoxState::Unchecked )
         .build( &mut app_mut.checkbox ).unwrap_or_default();
         // Buttons
         Button::builder()
@@ -213,20 +213,20 @@ pub fn build_main_window(bsp_path: &Path) -> Rc<RefCell<MainWindow>>
     window
 }
 
-pub fn show_wait_splash() -> nwg::Window
+pub fn show_wait_splash() -> Window
 {
-    nwg::init().unwrap();
+    init().unwrap();
 
-    let mut splash = nwg::Window::default();
-    nwg::Window::builder()
+    let mut splash = Window::default();
+    Window::builder()
         .size( ( 200, 0 ) )
-        .position( ( nwg::Monitor::width() / 2 - 150, nwg::Monitor::height() / 2 - 50 ) )
+        .position( ( Monitor::width() / 2 - 150, Monitor::height() / 2 - 50 ) )
         .title( "Initial setup, please wait..." ) // no title bar text
         .flags
         (
-            nwg::WindowFlags::WINDOW
-            | nwg::WindowFlags::VISIBLE
-            | nwg::WindowFlags::POPUP, // no system menu, no buttons
+            WindowFlags::WINDOW
+            | WindowFlags::VISIBLE
+            | WindowFlags::POPUP, // no system menu, no buttons
         )
     .build( &mut splash ).unwrap();
     // !-UNDONE-!: Label doesn't show up for some reason

@@ -32,7 +32,7 @@ use crate::
 #[derive(Debug, serde::Serialize, serde::Deserialize, Default)]
 pub struct Config
 {
-    pub svencoopdir: Option<String>,
+    pub svencoopdir: Option<String>
 }
 
 fn appdata_base() -> PathBuf 
@@ -47,7 +47,7 @@ fn appdata_base() -> PathBuf
     } 
     else 
     {
-        std::env::current_dir().unwrap().join( crate::APPNAME )
+        env::current_dir().unwrap_or_default().join( crate::APPNAME )
     }
 }
 
@@ -98,7 +98,10 @@ pub fn init() -> io::Result<PathBuf>
     match exe_path.join( crate::cvar::DEFAULT_MAP_SETTINGS ).exists()
     {
         true => exe_path,
-        false => search_drives( crate::cvar::DEFAULT_MAP_SETTINGS ),
+        false =>// Doesn't exist, look for it
+        {
+            search_drives( crate::cvar::DEFAULT_MAP_SETTINGS ).unwrap_or_default()
+        }
     };
 
     if !default_cfg_dir.exists()

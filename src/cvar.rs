@@ -19,20 +19,26 @@ use std::
 {
     env,
     fs,
-    io::*,
-    path::*
+    io::
+    {
+        BufRead,
+        BufReader,
+        Write
+    },
+    path::
+    {
+        Path,
+        PathBuf
+    }
 };
 
-use crate::
-{
-    config::*,
-    gui::window::message_box
-};
+use crate::config::read_store;
+use crate::gui::window::message_box;
 
 pub const DEFAULT_MAP_SETTINGS: &str = "default_map_settings.cfg";
 pub const SKILL_SETTINGS: &str = "skill.cfg";
 
-const OTHER_CVARS: [&str; 49] =
+const OTHER_CVARS: [&str; 50] =
 [
     "map_script",
     "globalmodellist",
@@ -84,6 +90,7 @@ const OTHER_CVARS: [&str; 49] =
     "mp_teamoverride 1",
     "mp_timeleft",
     "mp_timeleft_empty",
+    "mp_survival_mode",
     "mp_survival_retries",
     "mp_survival_voteallow",
     "mp_classic_mode 0"
@@ -137,7 +144,7 @@ impl Cfg
             return -1;
         }
         // If whitelist is not empty, filter BSPs
-        let bsps: Vec<PathBuf> =
+        let bsps =
         match !whitelist.is_empty()
         {
             true =>

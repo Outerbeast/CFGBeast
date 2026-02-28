@@ -16,24 +16,47 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 extern crate native_windows_gui as nwg;
+
 use std::
 {
-    rc::Rc,
-    path::Path
+    path::Path,
+    rc::Rc
 };
 
-use nwg::*;
-use super::window::*;
+use native_windows_gui::
+{
+    dispatch_thread_events,
+    init,
+    stop_thread_dispatch,
+    CheckBoxState,
+    Event,
+    EventData,
+    ListBox,
+    MessageButtons,
+    MessageIcons
+};
+
 use crate::
 {
+    alloc_leaked,
+    utils,
     APPNAME,
+    gui::window::
+    {
+        build_main_window,
+        message_box,
+        HELP_INFO,
+        CHECKED,
+        UNCHECKED
+    },
     cvar::
     {
-        self,
-        *
-    },
-    gui,
-    utils
+        get_skill_cvars,
+        get_default_cvars,
+        load_bsps,
+        Cfg,
+        WriteType
+    }
 };
 
 pub fn GUI(bsp_path: &Path)
@@ -48,7 +71,7 @@ pub fn GUI(bsp_path: &Path)
         panic!( "{} panicked: {}", APPNAME, e );
     }
 
-    let gui = crate::gui::window::build_main_window( bsp_path );
+    let gui = build_main_window( bsp_path );
     let cloned_gui = Rc::clone( &gui );
     let window_handle = gui.borrow().window.handle;
 
@@ -61,12 +84,12 @@ pub fn GUI(bsp_path: &Path)
             Event::OnButtonClick
             if handle == gui.checkbox.handle =>
             {
-                let is_checked = gui.checkbox.check_state() == nwg::CheckBoxState::Checked;
+                let is_checked = gui.checkbox.check_state() == CheckBoxState::Checked;
 
                 match is_checked
                 {
-                    true => { gui.listbox_cvar.set_collection( cvar::get_skill_cvars() ); }
-                    false => { gui.listbox_cvar.set_collection( cvar::get_default_cvars() ); }
+                    true => { gui.listbox_cvar.set_collection( get_skill_cvars() ); }
+                    false => { gui.listbox_cvar.set_collection( get_default_cvars() ); }
                 }
             }
 
@@ -74,12 +97,12 @@ pub fn GUI(bsp_path: &Path)
             {
                 let cvars = gui.textbox.text();
                 let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
-                let is_skillcfg = gui.checkbox.check_state() == nwg::CheckBoxState::Checked;
+                let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
                 let bspdir = gui.bsp_dir.clone();
 
                 if handle == gui.buttons[0].handle
                 {
-                    cvar::Cfg
+                    Cfg
                     { 
                         cvars,
                         writetype: WriteType::OVERWRITE,
@@ -90,7 +113,7 @@ pub fn GUI(bsp_path: &Path)
                 }
                 else if handle == gui.buttons[1].handle
                 {
-                    cvar::Cfg
+                    Cfg
                     { 
                         cvars,
                         writetype: WriteType::APPEND,
@@ -101,7 +124,7 @@ pub fn GUI(bsp_path: &Path)
                 }
                 else if handle == gui.buttons[2].handle
                 {
-                    cvar::Cfg
+                    Cfg
                     { 
                         cvars, 
                         writetype: WriteType::REMOVE, 
@@ -112,7 +135,7 @@ pub fn GUI(bsp_path: &Path)
                 }
                 else if handle == gui.buttons[3].handle
                 {
-                    cvar::Cfg
+                    Cfg
                     {
                         cvars,
                         writetype: WriteType::DELETE,
@@ -138,7 +161,7 @@ pub fn GUI(bsp_path: &Path)
                         drop( gui );// Release the immutable borrow before taking a mutable one
                         let mut gui_mut = cloned_gui.borrow_mut();
                         gui_mut.bsp_dir = selected_bsp_folder;
-                        let bsp_paths = cvar::load_bsps( gui_mut.bsp_dir.as_path() );
+                        let bsp_paths = load_bsps( gui_mut.bsp_dir.as_path() );
                         // Extract filenames and mark them all as checked
                         let bsp_filenames: Vec<String> = bsp_paths.iter()
                             .filter_map( |p| p.file_name() )
@@ -157,11 +180,11 @@ pub fn GUI(bsp_path: &Path)
                 }
                 else if handle == gui.buttons[4].handle
                 {
-                    nwg::stop_thread_dispatch();
+                    stop_thread_dispatch();
                 }
                 else if handle == gui.buttons[5].handle
                 {
-                    message_box( "Help", gui::window::HELP_INFO, MessageButtons::Ok, MessageIcons::Question );
+                    message_box( "Help", HELP_INFO, MessageButtons::Ok, MessageIcons::Question );
                 }
             }
 
@@ -232,18 +255,18 @@ pub fn GUI(bsp_path: &Path)
 
             Event::OnWindowClose =>
             {
-                nwg::stop_thread_dispatch();
+                stop_thread_dispatch();
             }
 
             _ => { }
         }
     });
     // Keep the window alive in heap so events can be handled
-    Box::leak( Box::new( gui ) );
-    nwg::dispatch_thread_events();
+    alloc_leaked!( gui );
+    dispatch_thread_events();
 }
 
-fn current_bsp_whitelist(listbox: &nwg::ListBox<String>) -> Vec<String>
+fn current_bsp_whitelist(listbox: &ListBox<String>) -> Vec<String>
 {
     let checked = CHECKED;
     listbox.collection()
