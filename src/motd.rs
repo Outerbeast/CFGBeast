@@ -27,7 +27,7 @@ use native_windows_gui::
     MessageIcons
 };
 
-use crate::gui::window::message_box;
+use crate::gui::message_box;
 
 pub fn create_motd(motd_content: String)
 {
@@ -36,8 +36,7 @@ pub fn create_motd(motd_content: String)
         return;
     }
 
-    let current_dir = 
-    env::current_dir()
+    let current_dir = env::current_dir()
         .inspect_err( |e|
         {
             message_box("Error",
@@ -73,7 +72,8 @@ pub fn create_motd(motd_content: String)
         0 =>
         { 
             message_box( "No MOTD files written",
-                "No MOTD files written.\n\nPlease place the app executable in a map folder with valid BSPs and try again.",
+                "No MOTD files written.\n\n\
+                Please place the app executable in a map folder with valid BSPs and try again.",
                 MessageButtons::Ok,
                 MessageIcons::Warning );
         }
@@ -81,9 +81,9 @@ pub fn create_motd(motd_content: String)
         _ =>
         {
             message_box( "Done",
-            &format!( "Processed {} MOTD file(s).", count ),
-            MessageButtons::Ok,
-            MessageIcons::Info );
+                &format!( "Processed {} MOTD file(s).", count ),
+                MessageButtons::Ok,
+                MessageIcons::Info );
         }
     }
 }

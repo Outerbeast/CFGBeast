@@ -34,7 +34,8 @@ use crate::
     config,
     cvar,
     gui,
-    motd
+    motd,
+    gui::message_box
 };
 
 pub fn run() -> Result<(), io::Error>
@@ -42,17 +43,14 @@ pub fn run() -> Result<(), io::Error>
     let _ =
     match config::init()
     {
-        Ok( dir ) =>
-        {
-            dir
-        }
+        Ok( dir ) => dir,
 
         Err( e ) =>
         {
-            gui::window::message_box( "Sven Co-op install Not Found",
+            message_box( "Sven Co-op install Not Found",
                 format!( "Could not find a valid Sven Co-op installation.
-                    \nReason:\n{}
-                    \n\nTry installing {} directly to 'Sven Co-op\\svencoop' and try again.", e, APPNAME ).as_str(), 
+                \nReason:\n{}
+                \n\nTry installing {} directly to 'Sven Co-op\\svencoop' and try again.", e, APPNAME ).as_str(), 
                 MessageButtons::Ok,
                 MessageIcons::Error );
 
@@ -77,19 +75,27 @@ pub fn run() -> Result<(), io::Error>
                             cvars: content, 
                             writetype: cvar::WriteType::OVERWRITE, 
                             is_skillcfg: false, 
-                            bspdir: env::current_dir().unwrap_or_default(), 
+                            bspdir: env::current_dir()?,
                             bspwhitelist: vec![] 
                         }.create();
                     }
                 }
-                else if file.ends_with( "_motd.txt" ) && let Ok( content ) = fs::read_to_string( file )
+                else if file.ends_with( "_motd.txt" ) 
+                && let Ok( content ) = fs::read_to_string( file )
                 {
                     motd::create_motd( content );
                 }
             }
         }
         // Nothing was dragged, launch application
-        _ => gui::events::GUI( env::current_dir().unwrap_or_default().as_path() ),
+        _ =>
+        if let Err( e ) = gui::launch_gui( env::current_dir()?.as_path() )
+        {
+            message_box( "FATAL ERROR",
+                 format!( "Failed to initialise window.\nError code: {}", e ).as_str(),
+                 MessageButtons::Ok,
+                 MessageIcons::Error );
+        }
     }
 
     Ok( () )

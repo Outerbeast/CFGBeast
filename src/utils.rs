@@ -15,7 +15,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-extern crate native_windows_gui as nwg;
 use std::
 {
     fs,
@@ -24,6 +23,13 @@ use std::
         Path,
         PathBuf
     }
+};
+
+use native_windows_gui::
+{
+    FileDialog,
+    FileDialogAction,
+    Window
 };
 
 #[macro_export]
@@ -44,7 +50,6 @@ macro_rules! alloc_leaked// Leak allocator: boxes the value, leaks it forever
     };
 }
 // Searches all drives for a specific filename, returns the path to that file
-// Searches all drives for a specific filename, returns the path to that file
 pub fn search_drives(file_name: &str) -> Option<PathBuf>
 {
     if file_name.trim().is_empty()
@@ -57,37 +62,38 @@ pub fn search_drives(file_name: &str) -> Option<PathBuf>
         let drive = format!( "{}:/", d );
         let root = Path::new( &drive );
 
-        if root.exists() && root.is_dir()
+        if !root.exists() || !root.is_dir()
         {
-            let mut walker =
-                walkdir::WalkDir::new( root )
-                    .max_depth( 10 )
-                    .into_iter()
-                    .filter_entry( |e|
-                        {
-                            let name = e.file_name().to_string_lossy();
-                            !name.eq_ignore_ascii_case( "$Recycle.Bin" )
-                        })
-                    .filter_map( Result::ok )
-                    .filter( |e| e.file_name().to_string_lossy().eq_ignore_ascii_case( file_name ) );
+            continue;
+        }
 
-            if let Some(entry) = walker.next()
+        let mut walker = walkdir::WalkDir::new( root )
+            .max_depth( 10 )
+            .into_iter()
+            .filter_entry( |e|
             {
-                return Some( entry.path().to_path_buf() );
-            }
+                let name = e.file_name().to_string_lossy();
+                !name.eq_ignore_ascii_case( "$Recycle.Bin" )
+            })
+            .filter_map( Result::ok )
+            .filter( |e| e.file_name().to_string_lossy().eq_ignore_ascii_case( file_name ) );
+
+        if let Some(entry) = walker.next()
+        {
+            return Some( entry.path().to_path_buf() );
         }
     }
 
     None
 }
 // Opens a folder selection dialogue, returns the selected folder path
-pub fn select_folder_dialogue(parent: &nwg::Window) -> Option<PathBuf>
+pub fn select_folder_dialogue(parent: &Window) -> Option<PathBuf>
 {
-    let mut dlg = nwg::FileDialog::default();
+    let mut dlg = FileDialog::default();
 
-    nwg::FileDialog::builder()
+    FileDialog::builder()
         .title( "Select a folder" )
-        .action( nwg::FileDialogAction::OpenDirectory )
+        .action( FileDialogAction::OpenDirectory )
         .build( &mut dlg )
     .unwrap_or_default();
 

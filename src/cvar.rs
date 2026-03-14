@@ -32,8 +32,11 @@ use std::
     }
 };
 
-use crate::config::read_store;
-use crate::gui::window::message_box;
+use crate::
+{
+    config::read_store,
+    gui::message_box,
+};
 
 pub const DEFAULT_MAP_SETTINGS: &str = "default_map_settings.cfg";
 pub const SKILL_SETTINGS: &str = "skill.cfg";
@@ -149,26 +152,24 @@ impl Cfg
         {
             true =>
             {
-                bsps.into_iter()
-                    .filter( |path| 
+                bsps.into_iter().filter( |path| 
+                {
+                    if let Some( stem ) = path.file_stem().and_then( |s| s.to_str() ) 
                     {
-                        if let Some( stem ) = path.file_stem().and_then( |s| s.to_str() ) 
-                        {
-                            whitelist.iter().any( |w| 
-                            {   // Strip extension from whitelist entry if present
-                                let w_stem = Path::new( w )
-                                    .file_stem()
-                                    .and_then( |s| s.to_str() )
-                                    .unwrap_or( w );
-                                w_stem.eq_ignore_ascii_case( stem )
-                            })
-                        }
-                        else
-                        {
-                            false
-                        }
-                    })
-                .collect()
+                        whitelist.iter().any( |w| 
+                        {   // Strip extension from whitelist entry if present
+                            let w_stem = Path::new( w )
+                                .file_stem()
+                                .and_then( |s| s.to_str() )
+                                .unwrap_or( w );
+                            w_stem.eq_ignore_ascii_case( stem )
+                        })
+                    }
+                    else
+                    {
+                        false
+                    }
+                }).collect()
             }
             
             false => bsps
@@ -201,7 +202,7 @@ impl Cfg
                     }
                 }
                 
-                false => 
+                false =>
                 {
                     cfg_name.set_extension( "cfg" );
                 }
@@ -281,7 +282,10 @@ pub fn parse_cfg(file_cvars: fs::File) -> Vec<String>
         .lines()
         .map_while( Result::ok )// fingers crossed
         .map( |line| line.trim().to_string() )
-        .filter( |line| !line.is_empty() && !line.starts_with( "//" ) && !line.starts_with( '#' ) )
+        .filter( |line| 
+            !line.is_empty() 
+            && !line.starts_with( "//" ) 
+            && !line.starts_with( '#' ) )
     .collect();
 
     cvars.sort();
@@ -294,7 +298,7 @@ pub fn get_default_cvars() -> Vec<String>
     match read_store()
     {
         Ok( store ) => store.svencoopdir.unwrap_or_default().trim().to_string(),
-        Err( _ ) => String::new(),
+        Err( _ ) => String::new()
     };
 
     match fs::File::open( conf )

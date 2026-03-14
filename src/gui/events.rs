@@ -15,40 +15,29 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-extern crate native_windows_gui as nwg;
 
 use std::
 {
     path::Path,
-    rc::Rc
+    rc::Rc,
+    cell::RefCell
 };
 
 use native_windows_gui::
 {
-    dispatch_thread_events,
-    init,
+    bind_event_handler,
     stop_thread_dispatch,
     CheckBoxState,
     Event,
     EventData,
     ListBox,
     MessageButtons,
-    MessageIcons
+    MessageIcons,
 };
 
 use crate::
 {
-    alloc_leaked,
     utils,
-    APPNAME,
-    gui::window::
-    {
-        build_main_window,
-        message_box,
-        HELP_INFO,
-        CHECKED,
-        UNCHECKED
-    },
     cvar::
     {
         get_skill_cvars,
@@ -59,213 +48,199 @@ use crate::
     }
 };
 
-pub fn GUI(bsp_path: &Path)
+use super::
 {
-    if let Err( e ) = init()
-    {
-        message_box( "FATAL ERROR",
-        format!( "Failed to initialise window.\nError code: {}", e ).as_str(),
-        MessageButtons::Ok,
-        MessageIcons::Error );
+    CHECKED,
+    HELP_INFO,
+    UNCHECKED,
+    MainWindow,
+    message_box
+};
+// Checkbox handler
+fn on_checkbox_toggled(gui: &mut MainWindow)
+{
+    let is_checked = gui.checkbox.check_state() == CheckBoxState::Checked;
 
-        panic!( "{} panicked: {}", APPNAME, e );
+    match is_checked
+    {
+        true => { gui.listbox_cvar.set_collection( get_skill_cvars() ); }
+        false => { gui.listbox_cvar.set_collection( get_default_cvars() ); }
     }
+}
+// Button handlers
+fn on_create_button(gui: &mut MainWindow)
+{
+    let cvars = gui.textbox.text();
+    let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
+    let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
+    let bspdir = gui.bsp_dir.clone();
 
-    let gui = build_main_window( bsp_path );
-    let cloned_gui = Rc::clone( &gui );
-    let window_handle = gui.borrow().window.handle;
-
-    nwg::bind_event_handler( &window_handle, &window_handle, move |evt, evt_data, handle|
+    Cfg
     {
-        let gui = cloned_gui.borrow();
-
-        match evt
-        {
-            Event::OnButtonClick
-            if handle == gui.checkbox.handle =>
-            {
-                let is_checked = gui.checkbox.check_state() == CheckBoxState::Checked;
-
-                match is_checked
-                {
-                    true => { gui.listbox_cvar.set_collection( get_skill_cvars() ); }
-                    false => { gui.listbox_cvar.set_collection( get_default_cvars() ); }
-                }
-            }
-
-            Event::OnButtonClick =>
-            {
-                let cvars = gui.textbox.text();
-                let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
-                let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
-                let bspdir = gui.bsp_dir.clone();
-
-                if handle == gui.buttons[0].handle
-                {
-                    Cfg
-                    { 
-                        cvars,
-                        writetype: WriteType::OVERWRITE,
-                        is_skillcfg,
-                        bspdir,
-                        bspwhitelist: bspwhitelist.clone() 
-                    }.create();
-                }
-                else if handle == gui.buttons[1].handle
-                {
-                    Cfg
-                    { 
-                        cvars,
-                        writetype: WriteType::APPEND,
-                        is_skillcfg,
-                        bspdir,
-                        bspwhitelist: bspwhitelist.clone()
-                    }.create();
-                }
-                else if handle == gui.buttons[2].handle
-                {
-                    Cfg
-                    { 
-                        cvars, 
-                        writetype: WriteType::REMOVE, 
-                        is_skillcfg,
-                        bspdir,
-                        bspwhitelist: bspwhitelist.clone() 
-                    }.create();
-                }
-                else if handle == gui.buttons[3].handle
-                {
-                    Cfg
-                    {
-                        cvars,
-                        writetype: WriteType::DELETE,
-                        is_skillcfg,
-                        bspdir,
-                        bspwhitelist: current_bsp_whitelist( &gui.listbox_bsp )
-                    }.create();
-                }
-                else if handle == gui.buttons[6].handle
-                {
-                    let selected_bsp_folder =
-                    match utils::select_folder_dialogue( &gui.window )
-                    {
-                        Some( path ) => path,
-                        None =>
-                        {   // A folder wasn't picked
-                            return;
-                        }
-                    };
-
-                    if selected_bsp_folder.exists() && utils::dir_contains_type( &selected_bsp_folder, "bsp" )
-                    {   
-                        drop( gui );// Release the immutable borrow before taking a mutable one
-                        let mut gui_mut = cloned_gui.borrow_mut();
-                        gui_mut.bsp_dir = selected_bsp_folder;
-                        let bsp_paths = load_bsps( gui_mut.bsp_dir.as_path() );
-                        // Extract filenames and mark them all as checked
-                        let bsp_filenames: Vec<String> = bsp_paths.iter()
-                            .filter_map( |p| p.file_name() )
-                            .map( |name| format!( "{CHECKED}\t{}", name.to_string_lossy() ) )
-                        .collect();
-
-                        gui_mut.listbox_bsp.set_collection( bsp_filenames );
-                    }
-                    else
-                    {
-                        message_box( "Invalid folder",
-                        "The selected folder does not contain any BSP files.",
-                        MessageButtons::Ok,
-                        MessageIcons::Error );
-                    }
-                }
-                else if handle == gui.buttons[4].handle
-                {
-                    stop_thread_dispatch();
-                }
-                else if handle == gui.buttons[5].handle
-                {
-                    message_box( "Help", HELP_INFO, MessageButtons::Ok, MessageIcons::Question );
-                }
-            }
-
-            Event::OnFileDrop =>
-            {   // Release the long-lived immutable borrow taken before the match
-                drop( gui );
-
-                if let EventData::OnFileDrop( drop ) = evt_data
-                {
-                    let mut combined = String::new();
-
-                    for path in drop.files()
-                    {
-                        if Path::new( &path ).extension().and_then( |s| s.to_str() ) != Some( "cfg" )
-                        {   // Not a .cfg file, skip
-                            continue;
-                        }
-
-                        if let Ok( content ) = std::fs::read_to_string(&path)
-                        {
-                            combined.push_str( &content );
-                            combined.push( '\n' );
-                        }
-                    }
-
-                    {
-                        let gui_mut = cloned_gui.borrow_mut();
-                        gui_mut.textbox.set_text( &combined );
-                    }
-                }
-            }
-
-            Event::OnListBoxSelect =>
-            {   // BSP whitelist listbox → toggle checkmark
-                if handle == gui.listbox_bsp.handle
-                {
-                    if let Some(idx) = gui.listbox_bsp.selection()
-                    {   // Clone the entire vector so we don’t mix borrows
-                        let mut items = gui.listbox_bsp.collection().clone();
-                        // Toggle the leading glyph on the cloned item
-                        let current = items[idx].clone();
-
-                        items[idx] =
-                        match current.starts_with( CHECKED )
-                        {
-                            true => format!( "{UNCHECKED}\t{}", &current[CHECKED.len() + 1..] ),
-                            false => format!( "{CHECKED}\t{}", &current[UNCHECKED.len() + 1..] )
-                        };
-                        // Replace the collection in one go
-                        gui.listbox_bsp.set_collection( items );
-                    }
-                }
-                else if handle == gui.listbox_cvar.handle
-                && let Some( idx ) = gui.listbox_cvar.selection()
-                && let Some( selected ) = gui.listbox_cvar.collection().get( idx )
-                {
-                    let mut current = gui.textbox.text();
-
-                    if !current.trim().is_empty() && !current.ends_with( '\n' )
-                    {
-                        current.push_str( "\r\n" );
-                    }
-
-                    current.push_str( selected );
-                    gui.textbox.set_text( &current );
-                }
-            }
-
-            Event::OnWindowClose =>
-            {
-                stop_thread_dispatch();
-            }
-
-            _ => { }
-        }
-    });
-    // Keep the window alive in heap so events can be handled
-    alloc_leaked!( gui );
-    dispatch_thread_events();
+        cvars,
+        writetype: WriteType::OVERWRITE,
+        is_skillcfg,
+        bspdir,
+        bspwhitelist
+    }.create();
 }
 
+fn on_add_button(gui: &mut MainWindow)
+{
+    let cvars = gui.textbox.text();
+    let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
+    let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
+    let bspdir = gui.bsp_dir.clone();
+
+    Cfg
+    {
+        cvars,
+        writetype: WriteType::APPEND,
+        is_skillcfg,
+        bspdir,
+        bspwhitelist
+    }.create();
+}
+
+fn on_remove_button(gui: &mut MainWindow)
+{
+    let cvars = gui.textbox.text();
+    let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
+    let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
+    let bspdir = gui.bsp_dir.clone();
+
+    Cfg
+    {
+        cvars,
+        writetype: WriteType::REMOVE,
+        is_skillcfg,
+        bspdir,
+        bspwhitelist
+    }.create();
+}
+
+fn on_delete_button(gui: &mut MainWindow)
+{
+    let cvars = gui.textbox.text();
+    let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
+    let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
+    let bspdir = gui.bsp_dir.clone();
+
+    Cfg
+    {
+        cvars,
+        writetype: WriteType::DELETE,
+        is_skillcfg,
+        bspdir,
+        bspwhitelist
+    }.create();
+}
+
+fn on_cancel_button()
+{
+    stop_thread_dispatch();
+}
+
+fn on_help_button()
+{
+    message_box( "Help", HELP_INFO, MessageButtons::Ok, MessageIcons::Question );
+}
+
+fn on_change_folder_button(gui: &mut MainWindow)
+{
+    let selected_bsp_folder =
+    match utils::select_folder_dialogue( &gui.window )
+    {
+        Some( path ) => path,
+        None => return
+    };
+
+    if selected_bsp_folder.exists() && utils::dir_contains_type( &selected_bsp_folder, "bsp" )
+    {
+        gui.bsp_dir = selected_bsp_folder;
+        let bsp_paths = load_bsps( gui.bsp_dir.as_path() );
+        let bsp_filenames: Vec<String> = bsp_paths.iter()
+            .filter_map( |p| p.file_name() )
+            .map( |name| format!( "{CHECKED}\t{}", name.to_string_lossy() ) )
+        .collect();
+
+        gui.listbox_bsp.set_collection( bsp_filenames );
+    }
+    else
+    {
+        message_box( "Invalid folder",
+            "The selected folder does not contain any BSP files.",
+            MessageButtons::Ok,
+            MessageIcons::Error );
+    }
+}
+
+// File drop handler
+fn on_file_drop(gui: &mut MainWindow, evt_data: &EventData)
+{
+    if let EventData::OnFileDrop( drop ) = evt_data
+    {
+        let mut combined = String::new();
+
+        for path in drop.files()
+        {
+            if Path::new( &path ).extension().and_then( |s| s.to_str() ) != Some( "cfg" )
+            {
+                continue;
+            }
+
+            if let Ok( content ) = std::fs::read_to_string( &path )
+            {
+                combined.push_str( &content );
+                combined.push( '\n' );
+            }
+        }
+
+        gui.textbox.set_text( &combined );
+    }
+}
+
+// ListBox handlers
+fn on_bsp_listbox_select(gui: &mut MainWindow)
+{
+    if let Some( idx ) = gui.listbox_bsp.selection()
+    {
+        let mut items = gui.listbox_bsp.collection().clone();
+        let current = items[idx].clone();
+
+        items[idx] =
+        match current.starts_with( CHECKED )
+        {
+            true => format!( "{UNCHECKED}\t{}", &current[CHECKED.len() + 1..] ),
+            false => format!( "{CHECKED}\t{}", &current[UNCHECKED.len() + 1..] )
+        };
+
+        gui.listbox_bsp.set_collection( items );
+    }
+}
+
+fn on_cvar_listbox_select(gui: &mut MainWindow)
+{
+    if let Some( idx ) = gui.listbox_cvar.selection()
+    && let Some( selected ) = gui.listbox_cvar.collection().get( idx )
+    {
+        let mut current = gui.textbox.text();
+
+        if !current.trim().is_empty() && !current.ends_with( '\n' )
+        {
+            current.push_str( "\r\n" );
+        }
+
+        current.push_str( selected );
+        gui.textbox.set_text( &current );
+    }
+}
+// Window handler
+fn on_window_close()
+{
+    stop_thread_dispatch();
+}
+// Helper function
 fn current_bsp_whitelist(listbox: &ListBox<String>) -> Vec<String>
 {
     let checked = CHECKED;
@@ -275,9 +250,78 @@ fn current_bsp_whitelist(listbox: &ListBox<String>) -> Vec<String>
         {
             match s.starts_with( checked )
             {
-                true => Some( s[checked.len() + 1..].to_string() ),// strip "☑ "
+                true => Some( s[checked.len() + 1..].to_string() ),
                 false => None
             }
         })
     .collect()
+}
+
+pub(super) fn setup_event_handlers(gui: &Rc<RefCell<MainWindow>>)
+{
+    let gui_weak = Rc::downgrade( gui );
+    let window_handle = gui.borrow().window.handle;
+
+    bind_event_handler( &window_handle, &window_handle, move |evt, evt_data, handle|
+    {
+        let gui_rc =
+        match gui_weak.upgrade()
+        {
+            Some( rc ) => rc,
+            None => return// GUI was dropped
+        };
+
+        match evt
+        {
+            Event::OnButtonClick =>
+            {
+                let mut gui = gui_rc.borrow_mut();
+
+                if handle == gui.checkbox.handle
+                {
+                    on_checkbox_toggled( &mut gui );
+                    return;
+                }
+
+                if let Some( index ) = gui.buttons.iter().position( |b| b.handle == handle )
+                {
+                    match index
+                    {
+                        0 => on_create_button( &mut gui ),
+                        1 => on_add_button( &mut gui ),
+                        2 => on_remove_button( &mut gui ),
+                        3 => on_delete_button( &mut gui ),
+                        4 => on_cancel_button(),
+                        5 => on_help_button(),
+                        6 => on_change_folder_button( &mut gui ),
+                        _ => { }
+                    }
+                }
+            }
+
+            Event::OnFileDrop =>
+            {
+                let mut gui = gui_rc.borrow_mut();
+                on_file_drop( &mut gui, &evt_data );
+            }
+
+            Event::OnListBoxSelect =>
+            {
+                let mut gui = gui_rc.borrow_mut();
+
+                if handle == gui.listbox_bsp.handle
+                {
+                    on_bsp_listbox_select( &mut gui );
+                }
+                else if handle == gui.listbox_cvar.handle
+                {
+                    on_cvar_listbox_select( &mut gui );
+                }
+            }
+
+            Event::OnWindowClose => on_window_close(),
+
+            _ => { }
+        }
+    });
 }

@@ -15,8 +15,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-extern crate native_windows_gui as nwg;
-use nwg::*;
 use std::
 {
     cell::RefCell,
@@ -28,33 +26,23 @@ use std::
     rc::Rc
 };
 
-use crate::{alloc_shared, cvar};
+use native_windows_gui::{init, Button, CheckBox, CheckBoxFlags, CheckBoxState, Label, ListBox, ListBoxFlags, Monitor, TextBox, TextBoxFlags, Window, WindowFlags};
 
-const WINDOW_SIZE: (i32, i32) = ( 860, 440 );
-const BUTTON_SIZE: (i32, i32) = ( 85, 30 );
-const TEXTBOX_SIZE: (i32, i32) = ( 330, 338 );
-const CVAR_LIST_SIZE: (i32, i32) = ( 330, 350 );
-const BSP_LIST_SIZE: (i32, i32) = ( 160, 350 );
-pub const UNCHECKED: &str = "☐";
-pub const CHECKED:   &str = "✔";
-pub const HELP_INFO: &str =
-    r#"This is a simple application to create, append, remove, and delete CFG files based on the BSP files in the current directory.
+use crate::
+{
+    alloc_shared,
+    cvar,
+};
 
-    Controls:-
-    - Enter the cvars you want to manage in the text box, by either:
-        selecting CVar presets in the right list,
-        dragging in an exiting CFG file into the box, 
-        or typing them in manually.
-
-    - 'Create': create or overwrite CFG files.
-    - 'Add': appends cvars to existing CFG files.
-    - 'Remove': remove specified cvars from CFG files.
-    - 'Delete': deletes all CFG files in the current directory.
-    - 'Change': changes the current BSP folder
-
-    Thank you for using this app!
-    If you'd like to give feedback feel free to put them here: https://github.com/Outerbeast/CFGBeast/issues
-    "#;
+use super::
+{
+    BSP_LIST_SIZE,
+    TEXTBOX_SIZE,
+    WINDOW_SIZE,
+    BUTTON_SIZE,
+    CHECKED,
+    CVAR_LIST_SIZE
+};
 
 #[derive(Default)]
 pub struct MainWindow
@@ -70,15 +58,24 @@ pub struct MainWindow
     pub bsp_dir: PathBuf,
 }
 
-pub fn message_box(title: &str, content: &str, buttons: MessageButtons, icons: MessageIcons) -> MessageChoice
+pub fn show_wait_splash() -> Window
 {
-    message( &MessageParams
-    {
-        title,
-        content,
-        buttons,
-        icons,
-    })
+    init().ok();
+
+    let mut splash = Window::default();
+    Window::builder()
+        .size( ( 200, 0 ) )
+        .position( ( Monitor::width() / 2 - 150, Monitor::height() / 2 - 50 ) )
+        .title( "Initial setup, please wait..." ) // no title bar text
+        .flags
+        (
+            WindowFlags::WINDOW
+            | WindowFlags::VISIBLE
+            | WindowFlags::POPUP, // no system menu, no buttons
+        )
+        .build( &mut splash ).ok();
+    
+    splash
 }
 // All fugly boilerplate business for building the GUI
 pub fn build_main_window(bsp_path: &Path) -> Rc<RefCell<MainWindow>>
@@ -211,32 +208,4 @@ pub fn build_main_window(bsp_path: &Path) -> Rc<RefCell<MainWindow>>
     }
 
     window
-}
-
-pub fn show_wait_splash() -> Window
-{
-    init().unwrap();
-
-    let mut splash = Window::default();
-    Window::builder()
-        .size( ( 200, 0 ) )
-        .position( ( Monitor::width() / 2 - 150, Monitor::height() / 2 - 50 ) )
-        .title( "Initial setup, please wait..." ) // no title bar text
-        .flags
-        (
-            WindowFlags::WINDOW
-            | WindowFlags::VISIBLE
-            | WindowFlags::POPUP, // no system menu, no buttons
-        )
-    .build( &mut splash ).unwrap();
-    // !-UNDONE-!: Label doesn't show up for some reason
-/*     let mut label = nwg::Label::default();
-    nwg::Label::builder()
-        .text( "Doing initial setup, please wait…" )
-        .parent( &splash )
-        .position( ( 20, 40 ) )
-        .size( ( 260, 20 ) )
-    .build( &mut label ).unwrap(); */
-
-    splash
 }

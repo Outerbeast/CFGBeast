@@ -15,26 +15,31 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+pub const PRODUCT_NAME: &str = env!( "CARGO_PKG_NAME" );
+const AUTHOR: &str = env!( "CARGO_PKG_AUTHORS" );
+const VERSION: &str = env!( "CARGO_PKG_VERSION" );
+const DESCRIPTION: &str = env!( "CARGO_PKG_DESCRIPTION" );
+
 #[cfg(windows)]
 fn main() -> std::io::Result<()>
 {
     winresource::WindowsResource::new()
         .set_icon( "icon.ico" )
-        .set( "ProductName", "CFGBeast" )
-        .set( "ProductVersion", "2.1.0" )
-        .set( "FileDescription", "CFGBeast Map Configurator" )
-        .set( "FileVersion", "2.1.0" )
-        .set( "LegalCopyright", "Outerbeast" )
-        .set( "OriginalFilename", "CFGBeast.exe" )
-        .set( "InternalName", "CFGBeast" )
-        .set( "CompanyName", "Outerbeast" )
-        .set( "LegalTrademarks", "Outerbeast" )
-        .set( "Comments", "CFGBeast Map Configurator" )
+        .set( "ProductName", PRODUCT_NAME )
+        .set( "ProductVersion", VERSION )
+        .set( "FileDescription", DESCRIPTION )
+        .set( "FileVersion", VERSION )
+        .set( "LegalCopyright", AUTHOR )
+        .set( "OriginalFilename", format!( "{}.exe", PRODUCT_NAME ).as_str() )
+        .set( "InternalName", PRODUCT_NAME )
+        .set( "CompanyName", AUTHOR )
+        .set( "LegalTrademarks", AUTHOR )
+        .set( "Comments", DESCRIPTION )
     .compile()?;
 
     Ok(())
 }
-// No Linux build is planned. This is just to avoid build errors on non-Windows targets.
+
 #[cfg(not(windows))]
 fn main() -> std::io::Result<()>
 {

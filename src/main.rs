@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-#![windows_subsystem = "windows"]
+//#![windows_subsystem = "windows"]
 
 pub mod driver;
 pub mod config;
@@ -24,7 +24,7 @@ pub mod cvar;
 pub mod motd;
 pub mod utils;
 
-pub const APPNAME: &str = "CFGBeast";
+pub const APPNAME: &str = env!( "CARGO_PKG_NAME" );
 
 fn main() -> std::process::ExitCode
 {

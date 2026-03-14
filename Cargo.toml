@@ -1,14 +1,23 @@
 [package]
 name = "CFGBeast"
 version = "2.1.0"
+authors = ["Outerbeast"]
 edition = "2024"
+description = "CFGBeast Map Configurator"
 
 [dependencies]
 native-windows-gui = "1.0.13"
+windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
 # Optional, for macro-based UI
 walkdir = "2.5.0"
 serde = { version = "1.0.228", features = ["derive"] }
-toml = "1.0.3+spec-1.1.0"
+toml = "1.0.6+spec-1.1.0"
 
 [build-dependencies]
 winresource = "0.1.30"
+
+[profile.release]
+opt-level = "z"      # Optimize for size (instead of speed)
+lto = true          # Link Time Optimization - smaller + faster
+strip = true        # Remove debug symbols
+codegen-units = 1   # Better optimization (slower compile)

@@ -25,7 +25,7 @@ use std::
 
 use crate::
 {
-    gui::window::message_box,
+    gui::message_box,
     utils::search_drives
 };
 
@@ -47,7 +47,7 @@ fn appdata_base() -> PathBuf
     } 
     else 
     {
-        env::current_dir().unwrap_or_default().join( crate::APPNAME )
+        env::current_dir().unwrap_or_else( |_| PathBuf::from( "." ) ).join( crate::APPNAME )
     }
 }
 
@@ -92,21 +92,19 @@ pub fn init() -> io::Result<PathBuf>
         return Ok( PathBuf::from( dir ) );
     }
     // Initial setup
-    let splash = crate::gui::window::show_wait_splash();
-    let exe_path = env::current_dir().unwrap_or_default();// If the default cfg file exists in the current dir, just use that.
+    crate::gui::window::show_wait_splash();
+    // If the default cfg file exists in the current dir, just use that.
+    let exe_path = env::current_dir().unwrap_or_else( |_| PathBuf::from( "." ) );
     let default_cfg_dir =
     match exe_path.join( crate::cvar::DEFAULT_MAP_SETTINGS ).exists()
     {
         true => exe_path,
-        false =>// Doesn't exist, look for it
-        {
-            search_drives( crate::cvar::DEFAULT_MAP_SETTINGS ).unwrap_or_default()
-        }
+        // Doesn't exist, search for it
+        false => search_drives( crate::cvar::DEFAULT_MAP_SETTINGS ).unwrap_or_default()
     };
 
     if !default_cfg_dir.exists()
     {
-        splash.close();
         return Err( io::Error::new( io::ErrorKind::NotFound, "No directory exists." ) );
     }//... from this point we just assume skill.cfg is also here along with default_map_settings.cfg
     // Save folder path into TOML
@@ -118,6 +116,5 @@ pub fn init() -> io::Result<PathBuf>
             native_windows_gui::MessageIcons::Error );
     };
     
-    splash.close();
     Ok( default_cfg_dir )
 }
