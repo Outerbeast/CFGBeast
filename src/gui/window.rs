@@ -18,21 +18,28 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use std::
 {
     cell::RefCell,
-    path::
-    {
-        Path,
-        PathBuf,
-    },
+    path::{ Path, PathBuf },
     rc::Rc
 };
 
-use native_windows_gui::{init, Button, CheckBox, CheckBoxFlags, CheckBoxState, Label, ListBox, ListBoxFlags, Monitor, TextBox, TextBoxFlags, Window, WindowFlags};
-
-use crate::
+use native_windows_gui::
 {
-    alloc_shared,
-    cvar,
+    init,
+    Button,
+    CheckBox,
+    CheckBoxFlags,
+    CheckBoxState,
+    Label,
+    ListBox,
+    ListBoxFlags,
+    Monitor,
+    TextBox,
+    TextBoxFlags,
+    Window,
+    WindowFlags
 };
+
+use crate::{ alloc_shared, cvar };
 
 use super::
 {
@@ -66,14 +73,14 @@ pub fn show_wait_splash() -> Window
     Window::builder()
         .size( ( 200, 0 ) )
         .position( ( Monitor::width() / 2 - 150, Monitor::height() / 2 - 50 ) )
-        .title( "Initial setup, please wait..." ) // no title bar text
+        .title( "Initial setup, please wait..." )// no title bar text
         .flags
         (
             WindowFlags::WINDOW
             | WindowFlags::VISIBLE
-            | WindowFlags::POPUP, // no system menu, no buttons
+            | WindowFlags::POPUP,// no system menu, no buttons
         )
-        .build( &mut splash ).ok();
+    .build( &mut splash ).ok();
     
     splash
 }

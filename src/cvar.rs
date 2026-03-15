@@ -25,13 +25,10 @@ use std::
         BufReader,
         Write
     },
-    path::
-    {
-        Path,
-        PathBuf
-    }
+    path::{ Path, PathBuf }
 };
 
+use native_windows_gui::{ MessageButtons, MessageIcons };
 use crate::
 {
     config::read_store,
@@ -128,8 +125,8 @@ impl Cfg
         {
             message_box( "No CVars specified",
                 "You did not add in any CVars.\nEnter your CVars in the text box and try again.",
-                native_windows_gui::MessageButtons::Ok,
-                native_windows_gui::MessageIcons::Warning );
+                MessageButtons::Ok,
+                MessageIcons::Warning );
 
             return -1;
         }
@@ -141,8 +138,9 @@ impl Cfg
         if bsps.is_empty()
         {
             message_box( "No BSP files found",
-            "No BSP files found.\n\nPlease place the app executable in a map folder with valid BSPs and try again.",
-            native_windows_gui::MessageButtons::Ok, native_windows_gui::MessageIcons::Warning );
+                "No BSP files found.\n\nPlease place the app executable in a map folder with valid BSPs and try again.",
+                MessageButtons::Ok,
+                MessageIcons::Warning );
             
             return -1;
         }
@@ -180,8 +178,8 @@ impl Cfg
             message_box( "No matching BSP files found",
                 "No matching BSP files found from the whitelist.
                 \n\nPlease adjust the whitelist or place the app executable in a map folder with valid BSPs and try again.",
-                native_windows_gui::MessageButtons::Ok,
-                native_windows_gui::MessageIcons::Warning );
+                MessageButtons::Ok,
+                MessageIcons::Warning );
 
             return -1;
         }
@@ -259,16 +257,16 @@ impl Cfg
             {
                 message_box( "No CFG files written", 
                     "No CFG files written.\n\nPlease place the app executable in a map folder with valid BSPs and try again.", 
-                    native_windows_gui::MessageButtons::Ok, 
-                    native_windows_gui::MessageIcons::Warning );
+                    MessageButtons::Ok,
+                    MessageIcons::Warning );
             }
 
             _ =>
             {
                 message_box( "Done", 
                     &format!( "Processed {} .cfg file(s).", count ),
-                    native_windows_gui::MessageButtons::Ok,
-                    native_windows_gui::MessageIcons::Info );
+                    MessageButtons::Ok,
+                    MessageIcons::Info );
             }
         }
 
@@ -341,7 +339,7 @@ pub fn load_bsps(chosen_dir: &Path) -> Vec<PathBuf>
     match chosen_dir.exists()
     {
         true => chosen_dir.to_path_buf(),
-        false => env::current_dir().unwrap_or_default()
+        false => env::current_dir().unwrap_or_else( |_| PathBuf::from( "." ) )
     };
     // Read the directory, return empty vec on error
     let entries =

@@ -25,6 +25,8 @@ use std::
 
 use crate::
 {
+    cvar,
+    gui,
     gui::message_box,
     utils::search_drives
 };
@@ -92,15 +94,15 @@ pub fn init() -> io::Result<PathBuf>
         return Ok( PathBuf::from( dir ) );
     }
     // Initial setup
-    crate::gui::window::show_wait_splash();
+    gui::window::show_wait_splash();
     // If the default cfg file exists in the current dir, just use that.
     let exe_path = env::current_dir().unwrap_or_else( |_| PathBuf::from( "." ) );
     let default_cfg_dir =
-    match exe_path.join( crate::cvar::DEFAULT_MAP_SETTINGS ).exists()
+    match exe_path.join( cvar::DEFAULT_MAP_SETTINGS ).exists()
     {
         true => exe_path,
         // Doesn't exist, search for it
-        false => search_drives( crate::cvar::DEFAULT_MAP_SETTINGS ).unwrap_or_default()
+        false => search_drives( cvar::DEFAULT_MAP_SETTINGS ).unwrap_or_default()
     };
 
     if !default_cfg_dir.exists()

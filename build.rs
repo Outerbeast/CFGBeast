@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-pub const PRODUCT_NAME: &str = env!( "CARGO_PKG_NAME" );
+const PRODUCT_NAME: &str = env!( "CARGO_PKG_NAME" );
 const AUTHOR: &str = env!( "CARGO_PKG_AUTHORS" );
 const VERSION: &str = env!( "CARGO_PKG_VERSION" );
 const DESCRIPTION: &str = env!( "CARGO_PKG_DESCRIPTION" );

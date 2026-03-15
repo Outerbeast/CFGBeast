@@ -34,8 +34,8 @@ use crate::
     config,
     cvar,
     gui,
+    gui::message_box,
     motd,
-    gui::message_box
 };
 
 pub fn run() -> Result<(), io::Error>
@@ -92,7 +92,7 @@ pub fn run() -> Result<(), io::Error>
         if let Err( e ) = gui::launch_gui( env::current_dir()?.as_path() )
         {
             message_box( "FATAL ERROR",
-                 format!( "Failed to initialise window.\nError code: {}", e ).as_str(),
+                 format!( "Failed to initialise window.\nReason: {}", e ).as_str(),
                  MessageButtons::Ok,
                  MessageIcons::Error );
         }

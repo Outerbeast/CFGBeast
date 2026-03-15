@@ -15,7 +15,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-
 use std::
 {
     path::Path,
@@ -59,88 +58,61 @@ use super::
 // Checkbox handler
 fn on_checkbox_toggled(gui: &mut MainWindow)
 {
-    let is_checked = gui.checkbox.check_state() == CheckBoxState::Checked;
-
-    match is_checked
+    match gui.checkbox.check_state()
     {
-        true => { gui.listbox_cvar.set_collection( get_skill_cvars() ); }
-        false => { gui.listbox_cvar.set_collection( get_default_cvars() ); }
+        CheckBoxState::Checked => { gui.listbox_cvar.set_collection( get_skill_cvars() ); }
+        CheckBoxState::Unchecked => { gui.listbox_cvar.set_collection( get_default_cvars() ); }
+        CheckBoxState::Indeterminate => { /*???*/ }
     }
 }
 // Button handlers
 fn on_create_button(gui: &mut MainWindow)
 {
-    let cvars = gui.textbox.text();
-    let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
-    let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
-    let bspdir = gui.bsp_dir.clone();
-
     Cfg
     {
-        cvars,
+        cvars: gui.textbox.text(),
         writetype: WriteType::OVERWRITE,
-        is_skillcfg,
-        bspdir,
-        bspwhitelist
+        is_skillcfg: gui.checkbox.check_state() == CheckBoxState::Checked,
+        bspdir: gui.bsp_dir.clone(),
+        bspwhitelist: current_bsp_whitelist( &gui.listbox_bsp )
     }.create();
 }
 
 fn on_add_button(gui: &mut MainWindow)
 {
-    let cvars = gui.textbox.text();
-    let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
-    let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
-    let bspdir = gui.bsp_dir.clone();
-
     Cfg
     {
-        cvars,
+        cvars: gui.textbox.text(),
         writetype: WriteType::APPEND,
-        is_skillcfg,
-        bspdir,
-        bspwhitelist
+        is_skillcfg: gui.checkbox.check_state() == CheckBoxState::Checked,
+        bspdir: gui.bsp_dir.clone(),
+        bspwhitelist: current_bsp_whitelist( &gui.listbox_bsp )
     }.create();
 }
 
 fn on_remove_button(gui: &mut MainWindow)
 {
-    let cvars = gui.textbox.text();
-    let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
-    let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
-    let bspdir = gui.bsp_dir.clone();
-
     Cfg
     {
-        cvars,
+        cvars: gui.textbox.text(),
         writetype: WriteType::REMOVE,
-        is_skillcfg,
-        bspdir,
-        bspwhitelist
+        is_skillcfg: gui.checkbox.check_state() == CheckBoxState::Checked,
+        bspdir: gui.bsp_dir.clone(),
+        bspwhitelist: current_bsp_whitelist( &gui.listbox_bsp )
     }.create();
 }
 
 fn on_delete_button(gui: &mut MainWindow)
 {
-    let cvars = gui.textbox.text();
-    let bspwhitelist = current_bsp_whitelist( &gui.listbox_bsp );
-    let is_skillcfg = gui.checkbox.check_state() == CheckBoxState::Checked;
-    let bspdir = gui.bsp_dir.clone();
-
     Cfg
     {
-        cvars,
+        cvars: gui.textbox.text(),
         writetype: WriteType::DELETE,
-        is_skillcfg,
-        bspdir,
-        bspwhitelist
+        is_skillcfg: gui.checkbox.check_state() == CheckBoxState::Checked,
+        bspdir: gui.bsp_dir.clone(),
+        bspwhitelist: current_bsp_whitelist( &gui.listbox_bsp )
     }.create();
 }
-
-fn on_cancel_button()
-{
-    stop_thread_dispatch();
-}
-
 fn on_help_button()
 {
     message_box( "Help", HELP_INFO, MessageButtons::Ok, MessageIcons::Question );
@@ -235,11 +207,6 @@ fn on_cvar_listbox_select(gui: &mut MainWindow)
         gui.textbox.set_text( &current );
     }
 }
-// Window handler
-fn on_window_close()
-{
-    stop_thread_dispatch();
-}
 // Helper function
 fn current_bsp_whitelist(listbox: &ListBox<String>) -> Vec<String>
 {
@@ -291,7 +258,7 @@ pub(super) fn setup_event_handlers(gui: &Rc<RefCell<MainWindow>>)
                         1 => on_add_button( &mut gui ),
                         2 => on_remove_button( &mut gui ),
                         3 => on_delete_button( &mut gui ),
-                        4 => on_cancel_button(),
+                        4 => stop_thread_dispatch(),// Cancel button
                         5 => on_help_button(),
                         6 => on_change_folder_button( &mut gui ),
                         _ => { }
@@ -319,8 +286,7 @@ pub(super) fn setup_event_handlers(gui: &Rc<RefCell<MainWindow>>)
                 }
             }
 
-            Event::OnWindowClose => on_window_close(),
-
+            Event::OnWindowClose => stop_thread_dispatch(),
             _ => { }
         }
     });

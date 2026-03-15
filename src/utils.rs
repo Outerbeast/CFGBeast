@@ -18,11 +18,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 use std::
 {
     fs,
-    path::
-    {
-        Path,
-        PathBuf
-    }
+    path::{ Path, PathBuf }
 };
 
 use native_windows_gui::
