@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
             windows => std::env::current_dir().unwrap_or( std::path::PathBuf::from( "." ) ),
             target_os = "linux" =>
             {
-                env::current_exe()
+                std::env::current_exe()
                     .ok()
                     .and_then( |p| p.parent().map( |p| p.to_path_buf() ) )
                     .filter( |p| p.is_dir() )
