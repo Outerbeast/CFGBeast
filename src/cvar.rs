@@ -1,5 +1,5 @@
 /*
-	CFGBeast Version 2.1
+	CFGBeast Version 3.0
 
 Copyright (C) 2025 Outerbeast
 This program is free software: you can redistribute it and/or modify
@@ -17,28 +17,46 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 use std::
 {
-    env,
+    collections::HashSet,
     fs,
     io::
     {
+        self,
         BufRead,
         BufReader,
         Write
     },
-    path::{ Path, PathBuf }
+    path::
+    {
+        Path,
+        PathBuf
+    },
+    sync::OnceLock
 };
 
-use native_windows_gui::{ MessageButtons, MessageIcons };
+use rfd::
+{
+    MessageLevel,
+    MessageButtons
+};
+
 use crate::
 {
-    config::read_store,
-    gui::message_box,
+    app::popup,
+    config::Config,
+    current_dir_path,
+    utils::HasExtension
 };
 
+const EXT_CFG: &str = "cfg";
+pub const EXT_BSP: &str = "bsp";
 pub const DEFAULT_MAP_SETTINGS: &str = "default_map_settings.cfg";
-pub const SKILL_SETTINGS: &str = "skill.cfg";
+const SKILL_SETTINGS: &str = "skill.cfg";
 
-const OTHER_CVARS: [&str; 50] =
+static DEFAULT_CVARS: OnceLock<Vec<String>> = OnceLock::new();
+static SKILL_CVARS: OnceLock<Vec<String>> = OnceLock::new();
+
+static OTHER_CVARS: [&str; 50] =
 [
     "map_script",
     "globalmodellist",
@@ -96,7 +114,6 @@ const OTHER_CVARS: [&str; 50] =
     "mp_classic_mode 0"
 ];
 
-#[derive(PartialEq)]
 pub enum WriteType
 {
     OVERWRITE,
@@ -105,256 +122,253 @@ pub enum WriteType
     DELETE
 }
 
+impl WriteType
+{
+    /// Executes the write operation on the given CFG file.
+    ///
+    /// | Variant    | Behavior |
+    /// |------------|----------|
+    /// | OVERWRITE  | Creates/overwrites `path` with `content` |
+    /// | APPEND     | Appends `content` to `path` |
+    /// | REMOVE     | Removes lines matching `content` from `path` |
+    /// | DELETE     | Deletes `path` (content ignored) |
+    pub(crate) fn execute(&self, path: &Path, content: &str) -> io::Result<()>
+    {
+        match self
+        {
+            WriteType::OVERWRITE => fs::File::create( path )?.write_all( content.as_bytes() ),
+            WriteType::APPEND => 
+            {
+                fs::OpenOptions::new()
+                    .append( true )
+                    .create( true )
+                    .open( path )?
+                .write_all( content.as_bytes() )
+            }
+
+            WriteType::REMOVE =>
+            {
+                let buf = fs::read_to_string( path )?;
+                let remove_lines: HashSet<_> = content.lines().collect();
+                let result: String = buf
+                    .lines()
+                    .filter( |line| !remove_lines.contains( *line ) )
+                    .collect::<Vec<_>>()
+                .join( "\n" );
+
+                fs::write( path, format!( "{result}\n" ) )
+            }
+
+            WriteType::DELETE =>
+            {
+                if path.try_exists()?
+                {
+                    fs::remove_file( path )?;
+                }
+
+                Ok( () )
+            }
+        }
+    }
+}
+
 pub struct Cfg
 {
     pub cvars: String,
     pub writetype: WriteType,
     pub is_skillcfg: bool,
     pub bspdir: PathBuf,
-    pub bspwhitelist: Vec<String>,
+    pub bspwhitelist: Vec<String>
 }
 
 impl Cfg
-{   // Creates/Modifies/Deletes cfg files based on the Cfg struct data, returns number of files processedm, -1 on error
+{   /// Creates/Modifies/Deletes cfg files based on the Cfg struct data, returns number of files processed, -1 on error
     pub fn create(&self) -> i8
     {
         let writetype = &self.writetype;
         let whitelist = &self.bspwhitelist;
 
-        if self.cvars.is_empty() && *writetype != WriteType::DELETE
+        if self.cvars.is_empty() && !matches!( writetype, WriteType::DELETE )
         {
-            message_box( "No CVars specified",
-                "You did not add in any CVars.\nEnter your CVars in the text box and try again.",
-                MessageButtons::Ok,
-                MessageIcons::Warning );
+            popup( "No CVars specified", 
+                "You did not add in any CVars.\nEnter your CVars in the text box and try again.", 
+                MessageLevel::Warning, MessageButtons::Ok );
 
             return -1;
         }
 
-        let cvars_in = format!( "{}\n", self.cvars );
-        let mut count = 0;
         let bsps = load_bsps( self.bspdir.as_path() );
 
         if bsps.is_empty()
         {
-            message_box( "No BSP files found",
-                "No BSP files found.\n\nPlease place the app executable in a map folder with valid BSPs and try again.",
-                MessageButtons::Ok,
-                MessageIcons::Warning );
+            popup( "No BSP files found", 
+                "No BSP files found.\n\nPlease place the app executable in a map folder with valid BSPs and try again.", 
+                MessageLevel::Warning, MessageButtons::Ok );
             
             return -1;
         }
         // If whitelist is not empty, filter BSPs
+        let whitelist_stems: HashSet<_> = whitelist
+            .iter()
+            .filter_map( |w| Path::new( w ).file_stem()?.to_str() )
+            .map( |s| s.to_ascii_lowercase() )
+        .collect();
+
         let bsps =
-        match !whitelist.is_empty()
+        if whitelist_stems.is_empty()
         {
-            true =>
-            {
-                bsps.into_iter().filter( |path| 
-                {
-                    if let Some( stem ) = path.file_stem().and_then( |s| s.to_str() ) 
-                    {
-                        whitelist.iter().any( |w| 
-                        {   // Strip extension from whitelist entry if present
-                            let w_stem = Path::new( w )
-                                .file_stem()
-                                .and_then( |s| s.to_str() )
-                                .unwrap_or( w );
-                            w_stem.eq_ignore_ascii_case( stem )
-                        })
-                    }
-                    else
-                    {
-                        false
-                    }
-                }).collect()
-            }
-            
-            false => bsps
+            bsps
+        }
+        else
+        {
+            bsps
+                .into_iter()
+                .filter( |path| path.file_stem()
+                .and_then( |s| s.to_str() )
+                .is_some_and( |s| whitelist_stems.contains( &s.to_ascii_lowercase() ) ) )
+            .collect()
         };
 
         if bsps.is_empty()// But why is it empty?
         {
-            message_box( "No matching BSP files found",
-                "No matching BSP files found from the whitelist.
-                \n\nPlease adjust the whitelist or place the app executable in a map folder with valid BSPs and try again.",
-                MessageButtons::Ok,
-                MessageIcons::Warning );
+            popup( "No matching BSP files found", 
+            "No matching BSP files found from the whitelist.\n\n
+                Please adjust the whitelist or place the app executable in a map folder with valid BSPs and try again.", 
+            MessageLevel::Warning, MessageButtons::Ok );
 
             return -1;
         }
+
+        let mut count = 0;
 
         for file_path in bsps
         {
             let mut cfg_name = file_path.clone();
 
-            match self.is_skillcfg
+            if self.is_skillcfg
             {
-                true =>
+                if let Some( stem ) = cfg_name.file_stem()
                 {
-                    if let Some( stem ) = cfg_name.file_stem()
-                    {
-                        let mut stem = stem.to_string_lossy().to_string();
-                        stem.push_str( "_skl.cfg" );
-                        cfg_name.set_file_name( stem );
-                    }
-                }
-                
-                false =>
-                {
-                    cfg_name.set_extension( "cfg" );
+                    let mut stem = stem.to_string_lossy().to_string();
+                    stem.push_str( "_skl.cfg" );
+                    cfg_name.set_file_name( stem );
                 }
             }
-
-            match writetype
+            else
             {
-                WriteType::OVERWRITE =>
-                {
-                    count +=
-                    match fs::File::create( &cfg_name )
-                    {
-                        Ok( mut file ) => file.write_all( cvars_in.as_bytes() ).is_ok() as u8,
-                        Err( _ ) => continue
-                    };
-                }
-
-                WriteType::APPEND =>
-                {
-                    count +=
-                    match fs::OpenOptions::new().append( true ).create( true ).open( &cfg_name )
-                    {
-                        Ok( mut file ) => file.write_all( cvars_in.as_bytes() ).is_ok() as u8,
-                        Err( _ ) => continue 
-                    };
-                }
-
-                WriteType::REMOVE =>
-                {
-                    if let Ok( mut lines ) = fs::read_to_string( &cfg_name )
-                    {
-                        for line in cvars_in.lines()
-                        {
-                            lines = lines.replace( line, "" );
-                        }
-
-                        count += fs::write( &cfg_name, lines ).is_ok() as u8;
-                    }
-                }
-
-                WriteType::DELETE =>
-                {
-                    if cfg_name.exists()
-                    {
-                        count += fs::remove_file( &cfg_name ).is_ok() as u8;
-                    }
-                }
+                cfg_name.set_extension( EXT_CFG );
             }
+
+            count += writetype.execute( &cfg_name, &format!( "{}\n", self.cvars ) ).is_ok() as u8;
         }
 
         match count
         {
             0 => 
             {
-                message_box( "No CFG files written", 
-                    "No CFG files written.\n\nPlease place the app executable in a map folder with valid BSPs and try again.", 
-                    MessageButtons::Ok,
-                    MessageIcons::Warning );
+                popup( "No CFG files written", 
+                    "No CFG files written.\n\n
+                    Please place the app executable in a map folder with valid BSPs and try again.", 
+                    MessageLevel::Warning, MessageButtons::Ok );
             }
 
             _ =>
             {
-                message_box( "Done", 
-                    &format!( "Processed {} .cfg file(s).", count ),
-                    MessageButtons::Ok,
-                    MessageIcons::Info );
+                popup( "Done", 
+                    &format!( "Processed {count} CFG file(s)." ), 
+                    MessageLevel::Info, MessageButtons::Ok );
             }
         }
 
         count as i8
     }
 }
-
-pub fn parse_cfg(file_cvars: fs::File) -> Vec<String>
+/// Reads CVars from a CFG file
+pub(crate) fn parse_cfg(file_cvars: fs::File) -> Vec<String>
 {
-    let mut cvars: Vec<String> = BufReader::new( file_cvars )
+    let mut cvars: Vec<_> = BufReader::new( file_cvars )
         .lines()
         .map_while( Result::ok )// fingers crossed
         .map( |line| line.trim().to_string() )
-        .filter( |line| 
-            !line.is_empty() 
-            && !line.starts_with( "//" ) 
-            && !line.starts_with( '#' ) )
+        .filter( |line| !line.is_empty() && !line.starts_with( "//" ) && !line.starts_with( '#' ) )
     .collect();
 
     cvars.sort();
     cvars
 }
 
-pub fn get_default_cvars() -> Vec<String>
+pub fn get_default_cvars() -> &'static Vec<String>
 {   
-    let conf = 
-    match read_store()
+    DEFAULT_CVARS.get_or_init( ||
     {
-        Ok( store ) => store.svencoopdir.unwrap_or_default().trim().to_string(),
-        Err( _ ) => String::new()
-    };
+        let cvar_path = Config::get().svencoopdir
+            .clone()
+            .unwrap_or_default()
+        .join( DEFAULT_MAP_SETTINGS );
 
-    match fs::File::open( conf )
-    {
-        Ok( file ) =>
-        {   // Append hardcoded CVars
-            let mut default_cvars = parse_cfg( file );
-            let other_cvars: Vec<String> = OTHER_CVARS.iter().map( |&s| s.to_owned() ).collect();
-            default_cvars.extend( other_cvars );
-            default_cvars.sort();
+        let mut cvars =
+        match fs::File::open( &cvar_path )
+        {
+            Ok( file ) => parse_cfg( file ),
+            Err( e ) =>
+            {
+                eprintln!( "Failed to load default cvars from {}: {e}", cvar_path.display() );
+                vec![]
+            }
+        };
 
-            default_cvars
-        }
+        let other_cvars: Vec<_> = OTHER_CVARS.iter().map( |&s| s.to_owned() ).collect();
+        cvars.extend( other_cvars );
+        cvars.sort();
 
-        Err( e ) => vec!["! Failed to load cvars.".to_string(), format!( "Reason: {}", e )]
-    }
+        cvars
+    })
 }
 
-pub fn get_skill_cvars() -> Vec<String>
+pub fn get_skill_cvars() -> &'static Vec<String>
 {
-    let conf = 
-    match read_store()
+    SKILL_CVARS.get_or_init( ||
     {
-        Ok( store ) => store.svencoopdir.unwrap_or_default().trim().to_string(),
-        Err( _ ) => String::new(),
-    };
+        let cvar_path = Config::get().svencoopdir
+            .clone()
+            .unwrap_or_default()
+        .join( SKILL_SETTINGS );
 
-    let conf = conf.replace( DEFAULT_MAP_SETTINGS, SKILL_SETTINGS ).trim().to_string();
-
-    match fs::File::open( conf )
-    {
-        Ok( file ) => parse_cfg( file ),
-        Err( e ) => vec!["! Failed to load cvars.".to_string(), format!( "Reason: {}", e )]
-    }
+        match fs::File::open( &cvar_path )
+        {
+            Ok( file ) => parse_cfg( file ),
+            Err( e ) =>
+            {
+                eprintln!( "Failed to load skill cvars from {}: {e}", cvar_path.display() );
+                vec![]
+            }
+        }
+    })
 }
-
-pub fn load_bsps(chosen_dir: &Path) -> Vec<PathBuf>
+/// Collects all BSP files in a given directory and returns their paths.
+pub fn load_bsps(chosen_path: &Path) -> Vec<PathBuf>
 {   // Use the chosen_dir if it exists, otherwise fall back to current_dir
-    let dir =
-    match chosen_dir.exists()
+    let chosen_path =
+    if chosen_path.try_exists().is_ok()
     {
-        true => chosen_dir.to_path_buf(),
-        false => env::current_dir().unwrap_or_else( |_| PathBuf::from( "." ) )
+        chosen_path
+    }
+    else
+    {
+        &current_dir_path!()
     };
     // Read the directory, return empty vec on error
-    let entries =
-    match fs::read_dir( &dir )
+    if let Ok( rd ) = fs::read_dir( chosen_path )
     {
-        Ok( rd ) => rd.filter_map( Result::ok ).collect::<Vec<_>>(),
-        Err( _ ) => return Vec::new()
-    };
+        rd
+            .filter_map( Result::ok )
+            .map( |e| e.path() )
+            .filter( |p| p.has_extension( &[EXT_BSP] ) )
+        .collect()
+    }
+    else
+    {
+        vec![]
+    }
 
-    entries
-        .into_iter()
-        .map( |e| e.path() )
-        .filter( |p|
-        {
-            p.extension().is_some_and( |ext| ext.eq_ignore_ascii_case( "bsp" ) )
-        })
-    .collect()
 }

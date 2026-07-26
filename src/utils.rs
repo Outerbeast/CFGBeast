@@ -1,5 +1,5 @@
 /*
-	CFGBeast Version 2.1
+    CFGBeast Version 3.0
 
 Copyright (C) 2025 Outerbeast
 This program is free software: you can redistribute it and/or modify
@@ -15,37 +15,27 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-use std::
+use std::path::{Path, PathBuf};
+/// Returns the current directory path, or "." if it fails.
+#[macro_export] macro_rules! current_dir_path
 {
-    fs,
-    path::{ Path, PathBuf }
-};
-
-use native_windows_gui::
-{
-    FileDialog,
-    FileDialogAction,
-    Window
-};
-
-#[macro_export]
-macro_rules! alloc_shared// Shared, mutable heap allocation (Rc<RefCell<T>>).
-{
-    ( $value:expr ) =>
+    () =>
     {
-        std::rc::Rc::new( std::cell::RefCell::new( $value ) )
+        cfg_select!
+        {
+            windows => std::env::current_dir().unwrap_or( std::path::PathBuf::from( "." ) ),
+            target_os = "linux" =>
+            {
+                env::current_exe()
+                    .ok()
+                    .and_then( |p| p.parent().map( |p| p.to_path_buf() ) )
+                    .filter( |p| p.is_dir() )
+                .unwrap_or_else( || std::env::current_dir().unwrap_or( std::path::PathBuf::from( "." ) ) )
+            }
+        }
     };
 }
-
-#[macro_export]
-macro_rules! alloc_leaked// Leak allocator: boxes the value, leaks it forever
-{
-    ( $value:expr ) =>
-    {
-        Box::leak( Box::new( $value ) )
-    };
-}
-// Searches all drives for a specific filename, returns the path to that file
+/// Searches all drives for a specific filename, returns the path to that file
 pub fn search_drives(file_name: &str) -> Option<PathBuf>
 {
     if file_name.trim().is_empty()
@@ -53,56 +43,131 @@ pub fn search_drives(file_name: &str) -> Option<PathBuf>
         return None;
     }
 
-    for d in 'A'..='Z'
+    let locations: Vec<_> =
+    cfg_select!
     {
-        let drive = format!( "{}:/", d );
-        let root = Path::new( &drive );
-
-        if !root.exists() || !root.is_dir()
+        windows =>
         {
-            continue;
+            ( 'A'..='Z' )
+                .map( |d| format!( "{d}:/" ) )
+                .filter( |drive|
+                {
+                    let root = Path::new( drive );
+                    root.try_exists().is_ok() && root.is_dir()
+                })
+            .collect()
         }
 
-        let mut walker = walkdir::WalkDir::new( root )
-            .max_depth( 10 )
-            .into_iter()
-            .filter_entry( |e|
-            {
-                let name = e.file_name().to_string_lossy();
-                !name.eq_ignore_ascii_case( "$Recycle.Bin" )
-            })
-            .filter_map( Result::ok )
-            .filter( |e| e.file_name().to_string_lossy().eq_ignore_ascii_case( file_name ) );
-
-        if let Some(entry) = walker.next()
+        target_os = "linux" =>
         {
-            return Some( entry.path().to_path_buf() );
+            vec!
+            [
+                dirs::home_dir()
+                    .map( |p| p.join( ".steam" )
+                    .join( "steam" )
+                    .to_string_lossy().to_string() )
+                .unwrap_or_default(),
+                dirs::home_dir()
+                    .map( |p| p.join( ".steam" )
+                    .join( "root" )
+                    .join( "steamapps" )
+                    .join( "common" )
+                    .to_string_lossy().to_string() )
+                .unwrap_or_default(),
+                dirs::home_dir()
+                    .map( |p| p.join( "Steam" )
+                    .join( "steamapps" )
+                    .join( "common" )
+                    .to_string_lossy().to_string())
+                .unwrap_or_default(),
+                dirs::home_dir()
+                    .map( |p| p.join( ".local" )
+                    .join( "share" ).join( "Steam" )
+                    .join( "steamapps" )
+                    .join( "common" )
+                    .to_string_lossy().to_string() )
+                .unwrap_or_default(),
+                dirs::home_dir()
+                    .map( |p| p.join( ".var" )
+                    .join( "app" )
+                    .join( "com.valvesoftware.Steam" )
+                    .join( ".steam" )
+                    .join( "steam" )
+                    .join( "steamapps" )
+                    .join( "common" )
+                    .to_string_lossy().to_string() )
+                .unwrap_or_default(),
+                "/mnt".to_string(),
+                "/opt".to_string(),
+                "/usr/games".to_string(),
+                "/usr/local/games".to_string(),
+            ]
+            .into_iter()
+            .filter( |root|
+            {
+                let p = Path::new( root );
+                p.try_exists().is_ok() && p.is_dir()
+            })
+            .collect()
+        }
+    };
+
+    for location in locations
+    {
+        for entry in jwalk::WalkDir::new( &location ).max_depth( 12 )
+        {
+            let Ok( entry ) = entry 
+            else 
+            { 
+                continue
+            };
+
+            if entry.file_name != file_name
+            {
+                continue;
+            }
+
+            let path = entry.path();
+
+            if path.has_extension( &["lnk"] )
+            {
+                continue;
+            }
+
+            #[cfg( target_os = "windows" )]
+            {
+                let path_lower = path.to_string_lossy().to_lowercase();
+                if path_lower.contains( "\\$recycle.bin\\" ) || path_lower.contains( "/$recycle.bin/" )
+                {
+                    continue;
+                }
+            }
+
+            return Some( path );
         }
     }
 
     None
 }
-// Opens a folder selection dialogue, returns the selected folder path
-pub fn select_folder_dialogue(parent: &Window) -> Option<PathBuf>
+pub trait HasExtension
 {
-    let mut dlg = FileDialog::default();
+    fn has_extension(&self, extensions: &[&str]) -> bool;
+}
 
-    FileDialog::builder()
-        .title( "Select a folder" )
-        .action( FileDialogAction::OpenDirectory )
-        .build( &mut dlg )
-    .unwrap_or_default();
+impl<T: AsRef<Path>> HasExtension for T
+{   /// Checks if a string has any of the specified extensions
+    fn has_extension(&self, extensions: &[&str]) -> bool
+    {
+        let Some( ext ) = self.as_ref().extension().and_then( |e| e.to_str() )
+        else
+        {
+            return false;
+        };
 
-    if dlg.run( Some( &parent.handle ) )
-    {
-        dlg.get_selected_item().ok().map( PathBuf::from )
-    }
-    else
-    {
-        None
+        extensions.iter().any( |e| ext.eq_ignore_ascii_case( e ) )
     }
 }
-// Checks if a directory contains at least one file of the specified type
+/// Checks if a directory contains at least one file of the specified type
 pub fn dir_contains_type(dir: &Path, ext: &str) -> bool
 {
     if !dir.is_dir()
@@ -110,16 +175,13 @@ pub fn dir_contains_type(dir: &Path, ext: &str) -> bool
         return false;
     }
 
-    match fs::read_dir( dir )
+    match std::fs::read_dir( dir )
     {
         Ok( entries ) =>
         {
             for entry in entries.flatten()
             {
-                let path = entry.path();
-                if path.extension()
-                    .map( |e| e.eq_ignore_ascii_case( ext ) )
-                .unwrap_or(false)
+                if entry.path().has_extension( &[ext] )
                 {
                     return true;
                 }
@@ -128,6 +190,42 @@ pub fn dir_contains_type(dir: &Path, ext: &str) -> bool
             false
         }
 
-        Err( _ ) => false,
+        Err( _ ) => false
     }
+}
+/// Line-by-line reader
+pub fn read_trimmed_lines(path: &Path) -> Option<Vec<String>>
+{
+    let file = std::fs::File::open( path ).ok()?;
+
+    let lines = std::io::BufRead::lines( std::io::BufReader::new( file ) )
+        .map_while( Result::ok )
+        .map( |l| l.trim().to_owned() )
+        .filter( |l| !l.is_empty() )
+    .collect();
+
+    Some( lines )
+}
+/// Line-by-line writer for a given filename and extension.
+pub fn write_lines<L: std::fmt::Display>(filename: &str, ext: &str, lines: &[L]) -> std::io::Result<()>
+{
+    use std::io::Write;
+
+    if lines.is_empty()
+    {
+        return Err( std::io::Error::new( std::io::ErrorKind::InvalidData, "Lines collection is empty." ) );
+    }
+
+    let mut file = std::fs::OpenOptions::new()
+        .write( true )
+        .create( true )
+        .truncate( true )
+    .open( format!( "{filename}.{ext}" ) )?;
+
+    for l in lines
+    {
+        writeln!( file, "{l}" )?;// Write can fail here, throw to prevent corruption.
+    }
+    
+    Ok( () )
 }

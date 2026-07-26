@@ -1,5 +1,5 @@
 /*
-	CFGBeast Version 2.1
+	CFGBeast Version 3.0
 
 Copyright (C) 2025 Outerbeast
 This program is free software: you can redistribute it and/or modify
@@ -17,87 +17,131 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 use std::
 {
-    env,
-    io,
-    fs
+    env, 
+    fs, 
+    io, 
+    path::Path
 };
 
-use native_windows_gui::
+use rfd::
 {
     MessageButtons,
-    MessageIcons
+    MessageLevel
 };
 
 use crate::
 {
-    APPNAME,
+    app,
     config,
-    cvar,
-    gui,
-    gui::message_box,
-    motd,
+    current_dir_path,
+    prelude::*
 };
-
-pub fn run() -> Result<(), io::Error>
+/// Helper for duplicating a MOTD file for each BSP file in a given directory.
+fn create_motd(motd_content: String, bsp_path: &Path) -> io::Result<u8>
 {
-    let _ =
-    match config::init()
+    if motd_content.trim().is_empty()
     {
-        Ok( dir ) => dir,
+        return Err( io::Error::new( io::ErrorKind::InvalidData, "MOTD content cannot be empty." ) );
+    }
 
-        Err( e ) =>
-        {
-            message_box( "Sven Co-op install Not Found",
-                format!( "Could not find a valid Sven Co-op installation.
-                \nReason:\n{}
-                \n\nTry installing {} directly to 'Sven Co-op\\svencoop' and try again.", e, APPNAME ).as_str(), 
-                MessageButtons::Ok,
-                MessageIcons::Error );
+    let bsps = load_bsps( bsp_path );
 
-            return Err( e );
-        }
-    };
-
-    let args: Vec<String> = env::args().collect();
-
-    match args.len()
+    if bsps.is_empty()
     {
-        n if n > 1 =>
-        {
-            for file in &args[1..]
-            {
-                if file.ends_with( ".cfg" )
-                {
-                    if let Ok( content ) = fs::read_to_string( file )
-                    {
-                        cvar::Cfg 
-                        { 
-                            cvars: content, 
-                            writetype: cvar::WriteType::OVERWRITE, 
-                            is_skillcfg: false, 
-                            bspdir: env::current_dir()?,
-                            bspwhitelist: vec![] 
-                        }.create();
-                    }
-                }
-                else if file.ends_with( "_motd.txt" ) 
-                && let Ok( content ) = fs::read_to_string( file )
-                {
-                    motd::create_motd( content );
-                }
-            }
+        app::popup( "No BSP files found", 
+            "Please place the app executable in a map folder with valid BSPs and try again.", 
+            MessageLevel::Warning, 
+            MessageButtons::Ok );
+
+        return Ok( 0 );
+    }
+
+    let count = bsps
+        .iter()
+        .filter_map( |bsp| bsp.file_stem().and_then( |s| s.to_str() ) )
+        .map( |base| fs::write( format!( "{base}_motd.txt" ), &motd_content ).is_ok() as u8 )
+    .sum::<_>();
+
+    match count
+    {
+        0 =>
+        { 
+            app::popup( "No MOTD files written", 
+                "Please place the app executable in a map folder with valid BSPs and try again.", 
+                MessageLevel::Warning, MessageButtons::Ok );
         }
-        // Nothing was dragged, launch application
+
         _ =>
-        if let Err( e ) = gui::launch_gui( env::current_dir()?.as_path() )
         {
-            message_box( "FATAL ERROR",
-                 format!( "Failed to initialise window.\nReason: {}", e ).as_str(),
-                 MessageButtons::Ok,
-                 MessageIcons::Error );
+            app::popup( "Done", &format!( "Processed {count} MOTD file(s)." ), 
+                MessageLevel::Info, 
+                MessageButtons::Ok );
         }
     }
 
-    Ok( () )
+    Ok( count )
+}
 
+pub fn run() -> io::Result<()>
+{
+    if env::args().any( |a| a == "--reset-config" || a == "-reset" || a == "-r" )
+    {
+        config::reset()?;
+    }
+
+    config::init()?;
+
+    if let args = env::args().skip( 1 ).filter( |a| a != "--reset-config" && a != "-r" ).collect::<Vec<_>>() 
+    && !args.is_empty()
+    {
+        for file in &args
+        {
+            if file.has_extension( &["cfg"] )
+            {
+                if let Ok( content ) = fs::read_to_string( file )
+                && !content.trim().is_empty()
+                {
+                    Cfg
+                    {
+                        cvars: content,
+                        writetype: WriteType::OVERWRITE,
+                        is_skillcfg: false,
+                        bspdir: current_dir_path!(),
+                        bspwhitelist: vec![]
+                    }.create();
+                }
+            }
+            else if file.ends_with( "_motd.txt" )
+            && let Ok( content ) = fs::read_to_string( file )
+            {
+                create_motd( content, &current_dir_path!() )?;
+            }
+            else if file.has_extension( &[EXT_GMR, EXT_GSR] )
+            && let Some( replacements ) = Replacement::from_file( file.as_ref() )
+            {
+                let filename = Path::new( file )
+                    .file_stem()
+                    .and_then( |s| s.to_str() )
+                .unwrap_or( "output" );
+
+                let ( models, sounds ) = Replacement::partition_replacements( &replacements );
+
+                if !models.is_empty()
+                {
+                    let _ = Replacement::to_file( filename, &models );
+                }
+
+                if !sounds.is_empty()
+                {
+                    let _ = Replacement::to_file( filename, &sounds );
+                }
+            }
+        }
+    }
+    else
+    {
+        app::launch_gui().map_err( io::Error::other )?
+    }
+
+    Ok( () )
 }

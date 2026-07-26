@@ -16,4 +16,3 @@ CertUtil -hashfile "%~dp0CFGBeast.exe" SHA256 > "%~dp0CFGBeast.exe.sha256.txt"
 
 echo Build complete.
 type "%~dp0CFGBeast.exe.sha256.txt"
-pause

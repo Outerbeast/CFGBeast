@@ -1,5 +1,5 @@
 /*
-	CFGBeast Version 2.1
+	CFGBeast Version 3.0
 
 Copyright (C) 2025 Outerbeast
 This program is free software: you can redistribute it and/or modify
@@ -16,32 +16,38 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 const PRODUCT_NAME: &str = env!( "CARGO_PKG_NAME" );
+#[cfg( windows )]
 const AUTHOR: &str = env!( "CARGO_PKG_AUTHORS" );
+#[cfg( windows )]
 const VERSION: &str = env!( "CARGO_PKG_VERSION" );
+#[cfg( windows )]
 const DESCRIPTION: &str = env!( "CARGO_PKG_DESCRIPTION" );
 
-#[cfg(windows)]
 fn main() -> std::io::Result<()>
 {
+    let config = slint_build::CompilerConfiguration::new().with_style( "cupertino-dark".into() );
+
+    if let Err( e ) =
+    slint_build::compile_with_config( format!( "ui/{PRODUCT_NAME}.slint" ), config )
+    {
+        eprintln!( "Failed to compile SCPluginManager.slint: {e}" );
+        return Err( std::io::Error::other( e ) );
+    }
+
+    #[cfg (windows )]
     winresource::WindowsResource::new()
-        .set_icon( "icon.ico" )
+        .set_icon( "ui/icon.ico" )
         .set( "ProductName", PRODUCT_NAME )
         .set( "ProductVersion", VERSION )
         .set( "FileDescription", DESCRIPTION )
         .set( "FileVersion", VERSION )
         .set( "LegalCopyright", AUTHOR )
-        .set( "OriginalFilename", format!( "{}.exe", PRODUCT_NAME ).as_str() )
+        .set( "OriginalFilename", &format!( "{PRODUCT_NAME}.exe" ) )
         .set( "InternalName", PRODUCT_NAME )
         .set( "CompanyName", AUTHOR )
         .set( "LegalTrademarks", AUTHOR )
         .set( "Comments", DESCRIPTION )
     .compile()?;
 
-    Ok(())
-}
-
-#[cfg(not(windows))]
-fn main() -> std::io::Result<()>
-{
-    compile_error!( "This application only supports Windows targets" );
+    Ok( () )
 }
