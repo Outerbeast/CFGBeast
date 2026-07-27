@@ -1,0 +1,473 @@
+import { Button, CheckBox, TextEdit, LineEdit, ListView, StandardListView, StandardTableView } from "std-widgets.slint";
+
+
+component CfgBspList {
+    in-out property <[string]> items;
+    callback toggled(int);
+
+    ListView {
+        vertical-stretch: 1;
+        for item[idx] in items: Rectangle {
+            TouchArea {
+                clicked => { root.toggled(idx); }
+            }
+            HorizontalLayout {
+                padding-left: 4px;
+                padding-right: 4px;
+                Text {
+                    text: item;
+                    font-size: 16px;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+component CfgTab {
+    in-out property <string> cvar-text;
+    in-out property <bool> skill-cfg;
+    in-out property <[string]> bsp-items;
+    in-out property <[StandardListViewItem]> cvar-presets;
+    in-out property <int> cvar-current;
+    in-out property <bool> is-dragging: false;
+
+    callback change-folder();
+    callback create-cfg();
+    callback add-cfg();
+    callback remove-cfg();
+    callback delete-cfg();
+    callback load-cfg();
+    callback dropped(string);
+
+    callback bsp-toggled(int);
+    callback cvar-selected(int);
+    callback skill-cfg-changed();
+
+    Rectangle {
+        horizontal-stretch: 1;
+        vertical-stretch: 1;
+        border-width: root.is-dragging ? 2px : 0px;
+        border-color: #0078d4;
+
+    VerticalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-bottom: 12px;
+        spacing: 12px;
+        vertical-stretch: 1;
+
+        // === HEADER ROW ===
+        HorizontalLayout {
+            spacing: 10px;
+            padding-top: 4px;
+            padding-bottom: 4px;
+
+            Text { text: "BSPs:"; }
+
+            Button { text: "Change Folder"; clicked => { root.change-folder(); } }
+
+            Rectangle { horizontal-stretch: 1; }
+
+            Text { text: "Input CVars:"; preferred-width: 290px; }
+
+            HorizontalLayout {
+                preferred-width: 290px;
+                spacing: 8px;
+
+                CheckBox {
+                    text: "Skill CFG";
+                    checked <=> root.skill-cfg;
+                    toggled => { root.skill-cfg-changed(); }
+                }
+
+                Rectangle { width: 0px; horizontal-stretch: 1; }
+            }
+        }
+
+        // === CONTENT ROW ===
+        HorizontalLayout {
+            spacing: 10px;
+            vertical-stretch: 1;
+
+            CfgBspList {
+                preferred-width: 200px;
+                vertical-stretch: 1;
+                items: root.bsp-items;
+                toggled(index) => { root.bsp-toggled(index); }
+            }
+
+            TextEdit {
+                preferred-width: 290px;
+                vertical-stretch: 1;
+                text <=> root.cvar-text;
+                wrap: word-wrap;
+            }
+
+            StandardListView {
+                preferred-width: 290px;
+                vertical-stretch: 1;
+                model: root.cvar-presets;
+                current-item <=> root.cvar-current;
+                current-item-changed(index) => { root.cvar-selected(index); }
+            }
+        }
+
+        // === BUTTON ROW ===
+        HorizontalLayout {
+            spacing: 10px;
+
+            Button { text: "Load CFG"; preferred-width: 45px; clicked => { root.load-cfg(); } }
+            Button { text: "Delete"; preferred-width: 45px; clicked => { root.delete-cfg(); } }
+            Button { text: "Add"; preferred-width: 45px; clicked => { root.add-cfg(); } }
+            Button { text: "Remove"; preferred-width: 45px; clicked => { root.remove-cfg(); } }
+
+            HorizontalLayout { horizontal-stretch: 1; }
+
+            Button { text: "Create"; preferred-width: 45px; clicked => { root.create-cfg(); } }
+        }
+    }
+    }
+}
+
+component ReplaceTab {
+    in-out property <[[StandardListViewItem]]> replacement-rows;
+    in-out property <int> current-row;
+    in-out property <bool> is-dragging: false;
+
+    callback load-replacements();
+    callback add-replacement();
+    callback remove-replacement();
+    callback create-replacements();
+    callback dropped(string);
+
+    Rectangle {
+        horizontal-stretch: 1;
+        vertical-stretch: 1;
+        border-width: root.is-dragging ? 2px : 0px;
+        border-color: #0078d4;
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            padding: 8px;
+            spacing: 6px;
+
+            StandardTableView {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                columns: [
+                    { title: "From" },
+                    { title: "To" },
+                ];
+                rows: root.replacement-rows;
+                current-row <=> root.current-row;
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Button { text: "Load Replacements"; preferred-width: 45px; clicked => { root.load-replacements(); } }
+                Button { text: "Add"; preferred-width: 45px; clicked => { root.add-replacement(); } }
+                Button { text: "Remove"; preferred-width: 45px; clicked => { root.remove-replacement(); } }
+                HorizontalLayout { }
+                Button { text: "Create"; preferred-width: 45px; clicked => { root.create-replacements(); } }
+            }
+        }
+    }
+}
+
+component RadioBtn {
+    in property <string> label;
+    in property <bool> checked;
+    callback toggled();
+
+    HorizontalLayout {
+        spacing: 4px;
+        alignment: start;
+        Rectangle {
+            width: 14px;
+            height: 14px;
+            border-radius: 7px;
+            border-width: 1px;
+            border-color: touch.has-hover ? #0078d4 : #888888;
+            background: transparent;
+            if root.checked: Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: #0078d4;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+        Text {
+            text: root.label;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        clicked => { root.toggled(); }
+    }
+}
+
+component MaterialTab {
+    in-out property <[[StandardListViewItem]]> material-rows;
+    in-out property <int> current-row;
+    in-out property <[StandardListViewItem]> wad-textures;
+    in-out property <int> selected-kind: 0;
+    in-out property <bool> is-dragging: false;
+
+    in-out property <string> wad-button-text: "Set WAD";
+
+    callback load-materials();
+    callback load-wad();
+    callback wad-texture-selected(int);
+    callback kind-changed(int);
+    callback remove-material();
+    callback create-materials();
+    callback dropped(string);
+
+    Rectangle {
+        horizontal-stretch: 1;
+        vertical-stretch: 1;
+        border-width: root.is-dragging ? 2px : 0px;
+        border-color: #0078d4;
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            padding: 8px;
+            spacing: 6px;
+
+            HorizontalLayout {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                spacing: 6px;
+
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+                    spacing: 6px;
+
+                    StandardTableView {
+                        horizontal-stretch: 1;
+                        vertical-stretch: 1;
+                        columns: [
+                            { title: "Texture" },
+                            { title: "Material Kind" },
+                        ];
+                        rows: root.material-rows;
+                        current-row <=> root.current-row;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 12px;
+
+                        VerticalLayout {
+                            spacing: 2px;
+                            Text { text: "Material Kind:"; font-size: 12px; }
+                            HorizontalLayout {
+                                spacing: 16px;
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    RadioBtn { label: "Metal"; checked: root.selected-kind == 0; toggled => { root.selected-kind = 0; root.kind-changed(0); } }
+                                    RadioBtn { label: "Dirt"; checked: root.selected-kind == 2; toggled => { root.selected-kind = 2; root.kind-changed(2); } }
+                                    RadioBtn { label: "Tile"; checked: root.selected-kind == 4; toggled => { root.selected-kind = 4; root.kind-changed(4); } }
+                                    RadioBtn { label: "Wood"; checked: root.selected-kind == 6; toggled => { root.selected-kind = 6; root.kind-changed(6); } }
+                                    RadioBtn { label: "Glass"; checked: root.selected-kind == 8; toggled => { root.selected-kind = 8; root.kind-changed(8); } }
+                                }
+                                VerticalLayout {
+                                    spacing: 2px;
+                                    RadioBtn { label: "Ventilation"; checked: root.selected-kind == 1; toggled => { root.selected-kind = 1; root.kind-changed(1); } }
+                                    RadioBtn { label: "Slosh Liquid"; checked: root.selected-kind == 3; toggled => { root.selected-kind = 3; root.kind-changed(3); } }
+                                    RadioBtn { label: "Grate"; checked: root.selected-kind == 5; toggled => { root.selected-kind = 5; root.kind-changed(5); } }
+                                    RadioBtn { label: "Computer"; checked: root.selected-kind == 7; toggled => { root.selected-kind = 7; root.kind-changed(7); } }
+                                    RadioBtn { label: "Flesh"; checked: root.selected-kind == 9; toggled => { root.selected-kind = 9; root.kind-changed(9); } }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+                    spacing: 4px;
+                    Button { text: root.wad-button-text; clicked => { root.load-wad(); } }
+                    StandardListView {
+                        horizontal-stretch: 1;
+                        vertical-stretch: 1;
+                        model: root.wad-textures;
+                        current-item-changed(index) => { root.wad-texture-selected(index); }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Button { text: "Load"; preferred-width: 45px; clicked => { root.load-materials(); } }
+                Button { text: "Remove"; preferred-width: 45px; clicked => { root.remove-material(); } }
+                HorizontalLayout { }
+                Button { text: "Create"; preferred-width: 45px; clicked => { root.create-materials(); } }
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    preferred-width: 800px;
+    preferred-height: 600px;
+    title: "CFGBeast";
+    icon: @image-url( "CFGBeast.png" );
+
+    in-out property <string> cvar-text;
+    in-out property <bool> skill-cfg;
+    in-out property <[string]> bsp-items;
+    in-out property <[StandardListViewItem]> cvar-presets;
+    in-out property <int> cvar-current;
+    in-out property <[[StandardListViewItem]]> replacement-rows;
+    in-out property <int> replace-current-row;
+    in-out property <[[StandardListViewItem]]> material-rows;
+    in-out property <int> material-current-row;
+    in-out property <[StandardListViewItem]> material-wad-textures;
+    in-out property <string> material-wad-button-text: "Set WAD";
+    in-out property <int> material-selected-kind: 0;
+    in-out property <bool> replace-is-dragging: false;
+    in-out property <bool> material-is-dragging: false;
+    in-out property <bool> cfg-is-dragging: false;
+
+    callback change-folder();
+    callback create-cfg();
+    callback add-cfg();
+    callback remove-cfg();
+    callback delete-cfg();
+
+    callback bsp-toggled(int);
+    callback cvar-selected(int);
+
+    callback load-replacements();
+    callback add-replacement();
+    callback remove-replacement();
+    callback create-replacements();
+    callback skill-cfg-changed();
+    callback load-materials();
+    callback load-wad();
+    callback wad-texture-selected(int);
+    callback kind-changed(int);
+    callback remove-material();
+    callback create-materials();
+    callback dropped(string);
+    callback material-dropped(string);
+    callback cfg-dropped(string);
+    callback load-cfg();
+
+    in-out property <int> current-tab: 0;
+
+    VerticalLayout {
+        spacing: 0;
+        padding: 0;
+
+        // --- Tab Bar ---
+        Rectangle {
+            height: 24px;
+            background: #e0e0e0;
+            HorizontalLayout {
+                spacing: 0;
+                Rectangle {
+                    horizontal-stretch: 1;
+                    background: root.current-tab == 0 ? #4a00d4 : transparent;
+                    TouchArea {
+                        clicked => { root.current-tab = 0; }
+                    }
+                    Text {
+                        text: "CFG Generator";
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        color: root.current-tab == 0 ? #ffffff : #000000;
+                    }
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                    background: root.current-tab == 1 ? #4a00d4 : transparent;
+                    TouchArea {
+                        clicked => { root.current-tab = 1; }
+                    }
+                    Text {
+                        text: "Resource Replacer";
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        color: root.current-tab == 1 ? #ffffff : #000000;
+                    }
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                    background: root.current-tab == 2 ? #4a00d4 : transparent;
+                    TouchArea {
+                        clicked => { root.current-tab = 2; }
+                    }
+                    Text {
+                        text: "Materials Replacer";
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        color: root.current-tab == 2 ? #ffffff : #000000;
+                    }
+                }
+            }
+        }
+
+        // --- Content ---
+        if (root.current-tab == 0) : CfgTab {
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            cvar-text <=> root.cvar-text;
+            skill-cfg <=> root.skill-cfg;
+            bsp-items <=> root.bsp-items;
+            cvar-presets <=> root.cvar-presets;
+            cvar-current <=> root.cvar-current;
+            is-dragging <=> root.cfg-is-dragging;
+
+            change-folder => { root.change-folder(); }
+            create-cfg => { root.create-cfg(); }
+            add-cfg => { root.add-cfg(); }
+            remove-cfg => { root.remove-cfg(); }
+            delete-cfg => { root.delete-cfg(); }
+            load-cfg => { root.load-cfg(); }
+            bsp-toggled(index) => { root.bsp-toggled(index); }
+            cvar-selected(index) => { root.cvar-selected(index); }
+            skill-cfg-changed => { root.skill-cfg-changed(); }
+            dropped(path) => { root.cfg-dropped(path); }
+        }
+        if (root.current-tab == 1) : ReplaceTab {
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            replacement-rows <=> root.replacement-rows;
+            current-row <=> root.replace-current-row;
+
+            load-replacements => { root.load-replacements(); }
+            add-replacement => { root.add-replacement(); }
+            remove-replacement => { root.remove-replacement(); }
+            create-replacements => { root.create-replacements(); }
+            dropped(path) => { root.dropped(path); }
+            is-dragging <=> root.replace-is-dragging;
+        }
+        if (root.current-tab == 2) : MaterialTab {
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            material-rows <=> root.material-rows;
+            current-row <=> root.material-current-row;
+            wad-textures <=> root.material-wad-textures;
+            wad-button-text <=> root.material-wad-button-text;
+            selected-kind <=> root.material-selected-kind;
+            is-dragging <=> root.material-is-dragging;
+
+            load-materials => { root.load-materials(); }
+            load-wad => { root.load-wad(); }
+            wad-texture-selected(index) => { root.wad-texture-selected(index); }
+            kind-changed(index) => { root.kind-changed(index); }
+            remove-material => { root.remove-material(); }
+            create-materials => { root.create-materials(); }
+            dropped(path) => { root.material-dropped(path); }
+        }
+    }
+}

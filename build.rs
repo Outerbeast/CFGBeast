@@ -36,7 +36,7 @@ fn main() -> std::io::Result<()>
 
     #[cfg (windows )]
     winresource::WindowsResource::new()
-        .set_icon( "ui/icon.ico" )
+        .set_icon( &format!( "ui/{PRODUCT_NAME}.ico" ) )
         .set( "ProductName", PRODUCT_NAME )
         .set( "ProductVersion", VERSION )
         .set( "FileDescription", DESCRIPTION )
