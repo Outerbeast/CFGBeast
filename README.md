@@ -1,10 +1,10 @@
 # CFGBeast
 
-![alt text](https://github.com/Outerbeast/CFGBeast/blob/main/preview.png?raw=true)
+![alt text](https://github.com/Outerbeast/CFGBeast/blob/main/preview.jpg?raw=true)
 
 BSP map configurator
 
-Quick and easy automatic CFG file generator for BSP files in one go, with preset CVars that can be selected
+Quick and easy automatic CFG file generator, resource and materials replacer for BSP files in one go, with preset CVars that can be selected
 
 ## Installation
 
@@ -13,7 +13,15 @@ Quick and easy automatic CFG file generator for BSP files in one go, with preset
 - Launch the executable for initial setup, this will search for your Sven Co-op game install.
 
 ## Usage
-### CVars
+
+You can switch between the different tabs to select between 3 modes:
+- CFG Generator
+- Resource Replacer
+- Materials Replacer
+
+### CFG Generator
+
+![alt text](https://github.com/Outerbeast/CFGBeast/blob/main/demo_cfg.png?raw=true)
 
 Input your CVars into the textbox by selecting preset CVars from the list, dragging in an exiting CFG file into the box, or putting them in manually into the box.
 
@@ -30,7 +38,10 @@ The list of BSPs selected are shown in the list on the left - you may uncheck BS
 
 You can also toggle skill CFG generation using the checkbox. This will show all the relevant skill CVars and will generate `*_skl.cfg` files.
 
-### Global Replacements (GMR/GSR)
+### Resource Replacer
+
+![alt text](https://github.com/Outerbeast/CFGBeast/blob/main/demo_resourcereplacer.png?raw=true)
+
 Creating replacements:
 1. Add replacement pairs using one of two methods:
 - Manually: click Add, pick an original file then a replacement file. Both must be the same type (model→model or sound→sound). Absolute paths are automatically truncated to relative game paths (e.g. `C:/Sven Co-op/svencoop/models/player.mdl` becomes `models/player.mdl`).
@@ -44,6 +55,8 @@ Quick Create:
 Dragging a `.gmr` or `.gsr` file onto the CFGBeast executable will parse it and generate the replacement files automatically.
 
 ### Materials Replacer
+
+![alt text](https://github.com/Outerbeast/CFGBeast/blob/main/demo_materials.png?raw=true)
 
 This helps you create material definition files (`materials.txt`) that changes the material type for a given texture.
 For more information read the [Materials Replacement Guide](https://wiki.svencoop.com/Mapping/Materials_Replacement_Guide) in the Sven Co-op Wiki.
