@@ -43,6 +43,8 @@ use super::
     popup
 };
 
+use crate::with_controller;
+
 use crate::prelude::*;
 
 #[derive( Default )]
@@ -75,60 +77,65 @@ fn sync_wad_textures(textures: &[String], app: &MainWindow)
     app.set_material_wad_textures( ModelRc::from( items.as_slice() ) );
 }
 
-#[allow( unused_mut )]
-pub(crate) fn setup(app: &MainWindow)
-{
-    app.set_material_rows( ModelRc::default() );
-    app.set_material_current_row( -1 );
-    app.set_material_selected_kind( 0 );
-    app.set_material_wad_textures( ModelRc::default() );
-    CTRL.set( Some( Controller::default() ) );
-    // ========== Materials Replacer Callback Bindings ==========
-    let app_weak = app.as_weak();
-    app.on_load_materials( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_load_materials( &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_material_dropped( move |path|
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_dropped( &app, path.as_str() ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_load_wad( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_load_wad( &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_wad_texture_selected( move |idx|
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_wad_texture_selected( &app, idx ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_kind_changed( move |idx|
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_kind_changed( &app, idx ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_remove_material( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_remove_material( &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_create_materials( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_create_materials( &app ) );
-    });
-}
-
 impl Controller
 {
+    pub fn new(app: &MainWindow) -> Self
+    {
+        app.set_material_rows( ModelRc::default() );
+        app.set_material_current_row( -1 );
+        app.set_material_selected_kind( 0 );
+        app.set_material_wad_textures( ModelRc::default() );
+        // ========== Materials Replacer Callback Bindings ==========
+        let app_weak = app.as_weak();
+        app.on_load_materials( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_load_materials( app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_material_dropped( move |path|
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_dropped( app, path.as_str() ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_load_wad( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_load_wad( app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_wad_texture_selected( move |idx|
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_wad_texture_selected( app, idx ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_kind_changed( move |idx|
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_kind_changed( app, idx ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_remove_material( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_remove_material( app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_create_materials( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_create_materials( app ) );
+        });
+
+        Self::default()
+    }
+
+    pub fn register(self)
+    {
+        CTRL.set( Some( self ) );
+    }
+
     fn populate_materials(&mut self, entries: &[MaterialEntry])
     {
         for e in entries

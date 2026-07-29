@@ -15,33 +15,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-/// Takes the controller out of the thread-local Cell, runs the body, puts it back.
-/// Use inside a Slint callback closure that captured `app_weak`.
-#[macro_export] macro_rules! with_ctrl
-{
-    ( $weak:expr, $handle:ident, | $ctrl:ident | $body:expr ) =>
-    {
-        {
-            let Some( $handle ) = $weak.upgrade()
-            else
-            {
-                return;
-            };
-            CTRL.with( |c|
-            {
-                let Some( mut $ctrl ) = c.take()
-                else
-                {
-                    return;
-                };
-
-                $body;
-                c.set( Some( $ctrl ) );
-            });
-        }
-    };
-}
-
 mod cfggen;
 mod materialsgen;
 mod replacegen;
@@ -88,10 +61,37 @@ use slint::
 };
 
 use crate::prelude::*;
+/// Takes the controller out of the thread-local Cell, runs the body, puts it back.
+/// Use inside a Slint callback closure that captured `app_weak`.
+#[macro_export] macro_rules! with_controller
+{
+    ( $app_weak:expr, $ctrl:ident, | $ctrl_name:ident, $app_name:ident | $body:expr ) =>
+    {
+        {
+            let Some( ref $app_name ) = $app_weak.upgrade()
+            else
+            {
+                return;
+            };
+
+            $ctrl.with( |c|
+            {
+                #[allow(unused_mut)]
+                let Some( mut $ctrl_name ) = c.take()
+                else
+                {
+                    return;
+                };
+
+                $body;
+                c.set( Some( $ctrl_name ) );
+            });
+        }
+    };
+}
 
 pub const CHECKED: &str = "✔";
 pub const UNCHECKED: &str = "☐";
-
 /// Shows a popup message dialog with the given title, description, returns MessageDialogResult of what the user clicked.
 /// Blocks the calling thread until the dialog is dismissed. The dialog runs on its own OS thread
 /// so Slint's event loop continues rendering in the background.
@@ -214,33 +214,33 @@ impl DragDropHandler
 
             for ( hovering, path ) in receiver.try_iter()
             {
-            if hovering
-            {
-                match current_tab
+                if hovering
                 {
-                    0 => app.set_cfg_is_dragging( true ),
-                    2 => app.set_material_is_dragging( true ),
-                    _ => app.set_replace_is_dragging( true )
+                    match current_tab
+                    {
+                        0 => app.set_cfg_is_dragging( true ),
+                        2 => app.set_material_is_dragging( true ),
+                        _ => app.set_replace_is_dragging( true )
+                    }
                 }
-            }
-            else if path.is_empty()
-            {
-                app.set_cfg_is_dragging( false );
-                app.set_replace_is_dragging( false );
-                app.set_material_is_dragging( false );
-            }
-            else
-            {
-                app.set_cfg_is_dragging( false );
-                app.set_replace_is_dragging( false );
-                app.set_material_is_dragging( false );
+                else if path.is_empty()
+                {
+                    app.set_cfg_is_dragging( false );
+                    app.set_replace_is_dragging( false );
+                    app.set_material_is_dragging( false );
+                }
+                else
+                {
+                    app.set_cfg_is_dragging( false );
+                    app.set_replace_is_dragging( false );
+                    app.set_material_is_dragging( false );
 
-                match current_tab
-                {
-                    0 => app.invoke_cfg_dropped( path.into() ),
-                    2 => app.invoke_material_dropped( path.into() ),
-                    _ => app.invoke_dropped( path.into() )
-                }
+                    match current_tab
+                    {
+                        0 => app.invoke_cfg_dropped( path.into() ),
+                        2 => app.invoke_material_dropped( path.into() ),
+                        _ => app.invoke_dropped( path.into() )
+                    }
                 }
             }
         });
@@ -277,9 +277,9 @@ pub fn launch_gui() -> Result<(), PlatformError>
     let (_handler, drop_rx) = DragDropHandler::new()?;
     let app = MainWindow::new()?;
     let _timer = DragDropHandler::start_polling( drop_rx, &app );
-    cfggen::setup( &app );
-    replacegen::setup( &app );
-    materialsgen::setup( &app );
+    cfggen::Controller::new( &app ).register();
+    replacegen::Controller::new( &app ).register();
+    materialsgen::Controller::new( &app ).register();
 
     let app_weak = app.as_weak();
     // Position window in the centre of the screen

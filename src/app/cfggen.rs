@@ -45,18 +45,13 @@ use super::
     popup
 };
 
-use crate::
-{
+use crate::{
     app::
     {
         collect_bsp_items,
         current_bsp_whitelist,
         load_cvar_presets,
-    },
-    current_dir_path,
-    cvar::parse_cfg,
-    prelude::*,
-    utils
+    }, current_dir_path, cvar::parse_cfg, prelude::*, utils, with_controller
 };
 
 pub(crate) struct Controller
@@ -71,86 +66,95 @@ thread_local!
     static CTRL: Cell<Option<Controller>> = const { Cell::new( None ) };
 }
 
-#[allow( unused_mut )]
-pub(crate) fn setup(app: &MainWindow)
-{
-    let bsp_path = current_dir_path!();
-    app.set_bsp_items( ModelRc::from( collect_bsp_items( &bsp_path ).as_slice() ) );
-    // --- Load CVar presets ---
-    app.set_cvar_presets( ModelRc::from( load_cvar_presets( false ).as_slice() ) );
-    app.set_cvar_current( -1 );
-
-    CTRL.set( Some( Controller
-    {
-        bsp_dir: bsp_path,
-        default_cvar_cache: SharedString::new(),
-        skill_cvar_cache: SharedString::new()
-    }));
-    // ========== CFG Generator Callback Bindings ==========
-    let app_weak = app.as_weak();
-    app.on_load_cfg( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_load_cfg( &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_cfg_dropped( move |path|
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_dropped( path.as_str(), &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_bsp_toggled( move |idx|
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_bsp_toggled( &app, idx ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_cvar_selected( move |idx|
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_cvar_selected( &app, idx ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_skill_cfg_changed( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_skill_cfg_changed( &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_change_folder( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_change_folder( &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_create_cfg( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.write_cfg( &app, WriteType::OVERWRITE ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_add_cfg( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.write_cfg( &app, WriteType::APPEND ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_remove_cfg( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.write_cfg( &app, WriteType::REMOVE ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_delete_cfg( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.write_cfg( &app, WriteType::DELETE ) );
-    });
-}
 /// ========== CFG Generator Handlers ==========
+#[allow( unused_mut )]
 impl Controller
 {
-        fn on_load_cfg(&self, app: &MainWindow)
+    pub fn new(app: &MainWindow) -> Self
+    {
+        let bsp_path = current_dir_path!();
+        app.set_bsp_items( ModelRc::from( collect_bsp_items( &bsp_path ).as_slice() ) );
+        // --- Load CVar presets ---
+        app.set_cvar_presets( ModelRc::from( load_cvar_presets( false ).as_slice() ) );
+        app.set_cvar_current( -1 );
+
+        let this = Self
+        {
+            bsp_dir: bsp_path,
+            default_cvar_cache: SharedString::new(),
+            skill_cvar_cache: SharedString::new()
+        };
+
+        // ========== CFG Generator Callback Bindings ==========
+        let app_weak = app.as_weak();
+        app.on_load_cfg( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_load_cfg( app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_cfg_dropped( move |path|
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_dropped( path.as_str(), app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_bsp_toggled( move |idx|
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_bsp_toggled( app, idx ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_cvar_selected( move |idx|
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_cvar_selected( app, idx ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_skill_cfg_changed( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_skill_cfg_changed( app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_change_folder( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_change_folder( app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_create_cfg( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.write_cfg( app, WriteType::OVERWRITE ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_add_cfg( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.write_cfg( app, WriteType::APPEND ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_remove_cfg( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.write_cfg( app, WriteType::REMOVE ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_delete_cfg( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.write_cfg( app, WriteType::DELETE ) );
+        });
+
+        this
+    }
+
+    pub fn register(self)
+    {
+        CTRL.set( Some( self ) );
+    }
+
+    fn on_load_cfg(&self, app: &MainWindow)
     {
         let Some( selected ) = FileDialog::new()
             .set_title( "Select a CFG file" )
@@ -183,6 +187,7 @@ impl Controller
                 let cvars = parse_cfg( file );
                 app.set_cvar_text( SharedString::from( cvars.join( "\n" ) ) );
             }
+
             Err( e ) =>
             {
                 popup( "Failed to read file",
@@ -281,7 +286,7 @@ impl Controller
             writetype: wt,
             is_skillcfg: app.get_skill_cfg(),
             bspdir: self.bsp_dir.clone(),
-            bspwhitelist: current_bsp_whitelist( app ),
+            bspwhitelist: current_bsp_whitelist( app )
         }.create();
     }
 }

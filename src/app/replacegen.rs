@@ -32,6 +32,7 @@ use slint::
 };
 
 use crate::prelude::*;
+use crate::with_controller;
 
 use super::
 {
@@ -61,46 +62,51 @@ fn sync_ui(rows: &[(String, String)], app: &MainWindow)
     app.set_replacement_rows( ModelRc::from( items.as_slice() ) );
 }
 
-#[allow( unused_mut )]
-pub(crate) fn setup(app: &MainWindow)
-{
-    app.set_replacement_rows( ModelRc::default() );
-    app.set_replace_current_row( -1 );
-    CTRL.set( Some( Controller::default() ) );
-    // ========== Resource Replacer Callback Bindings ==========
-    let app_weak = app.as_weak();
-    app.on_load_replacements( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_load_replacements( &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_dropped( move |path|
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_dropped( path.as_str(), &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_add_replacement( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_add_replacement( &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_remove_replacement( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_remove_replacement( &app ) );
-    });
-
-    let app_weak = app.as_weak();
-    app.on_create_replacements( move ||
-    {
-        with_ctrl!( app_weak, app, |ctrl| ctrl.on_create_replacements( &app ) );
-    });
-}
-
 impl Controller
-{   // ========== Resource Replacer Handlers ==========
+{
+    pub fn new(app: &MainWindow) -> Self
+    {
+        app.set_replacement_rows( ModelRc::default() );
+        app.set_replace_current_row( -1 );
+        // ========== Resource Replacer Callback Bindings ==========
+        let app_weak = app.as_weak();
+        app.on_load_replacements( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_load_replacements( app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_dropped( move |path|
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_dropped( path.as_str(), app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_add_replacement( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_add_replacement( app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_remove_replacement( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_remove_replacement( app ) );
+        });
+
+        let app_weak = app.as_weak();
+        app.on_create_replacements( move ||
+        {
+            with_controller!( app_weak, CTRL, |ctrl, app| ctrl.on_create_replacements( app ) );
+        });
+
+        Self::default()
+    }
+
+    pub fn register(self)
+    {
+        CTRL.set( Some( self ) );
+    }
+    // ========== Resource Replacer Handlers ==========
     fn on_load_replacements(&mut self, app: &MainWindow)
     {
         let Some( file ) = FileDialog::new()
